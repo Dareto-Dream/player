@@ -21,7 +21,7 @@ function App() {
   useEffect(() => {
     const boot = async () => {
       try {
-        if (window.location.pathname === '/auth/callback') await ward.finishCallback()
+        ward.hydrateCallback()
         setProfile(await ward.profile())
         const data = await api.browse()
         if (data.rooms.length) setRooms(data.rooms)
