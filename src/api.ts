@@ -11,6 +11,9 @@ export type Room = {
   security: 'anyone' | 'ward' | 'approval'
   listeners: number
   host: string
+  joinUrl?: string
+  roomCode?: string | null
+  isLive?: boolean
   artwork?: string
   nowPlaying?: { title: string; artist?: string; artwork?: string }
 }
@@ -28,7 +31,14 @@ async function request<T>(path: string, init: RequestInit = {}) {
 export const api = {
   browse: () => request<{ rooms: Room[] }>('/player/v1/rooms'),
   room: (id: string) => request<Room>(`/player/v1/rooms/${encodeURIComponent(id)}`),
+  sharedQueue: (code: string) => request<SharedQueue>(`/shared-play/v2/sessions/${encodeURIComponent(code)}/streamer-queue`),
+  submitSharedQueue: (code: string, submission: { url: string; title?: string; artist?: string; displayName?: string }) => request<QueueSubmission>(`/shared-play/v2/sessions/${encodeURIComponent(code)}/streamer-queue/submit`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(submission),
+  }),
   createRoom: (room: Pick<Room, 'name' | 'description' | 'kind' | 'tags' | 'security'>) => request<Room>('/player/v1/rooms', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(room),
   }),
 }
+
+export type SharedQueue = { enabled: boolean; acceptingSubmissions?: boolean; queueLength?: number; activeCount?: number; nowPlayingTitle?: string | null; nowPlayingArtist?: string | null }
+export type QueueSubmission = { submissionId: string; status: string; position?: number | null }

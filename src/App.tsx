@@ -1,12 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { ArrowRight, Disc3, Grid2X2, List, LogIn, Music2, Plus, Search, SlidersHorizontal, Users } from 'lucide-react'
-import { api, type Room } from './api'
+import { api, type Room, type SharedQueue } from './api'
 import { ward, type WardProfile } from './auth'
-
-const starterRooms: Room[] = [
-  { id: 'demo-midnight', name: 'Midnight Radio', kind: 'channel', tags: ['chill', 'explicit'], security: 'anyone', listeners: 28, host: 'nova', nowPlaying: { title: 'Small Hours', artist: 'untitled' } },
-  { id: 'demo-queue', name: 'garden stream requests', kind: 'streamer_queue', tags: ['all ages', 'requests'], security: 'ward', listeners: 11, host: 'garden', nowPlaying: { title: 'nothing playing' } },
-]
 
 const securityCopy = { anyone: 'Anyone can join', ward: 'Ward members', approval: 'Waiting room' }
 
@@ -17,7 +12,7 @@ function App() {
 
 function Directory() {
   const [profile, setProfile] = useState<WardProfile | null>(null)
-  const [rooms, setRooms] = useState<Room[]>(starterRooms)
+  const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showCreate, setShowCreate] = useState(false)
@@ -52,14 +47,11 @@ function Directory() {
           <button className="tag-filter"><SlidersHorizontal size={17} /> Tags</button>
           <div className="view-toggle" aria-label="Directory view"><button aria-label="Grid view"><Grid2X2 size={18} /></button><button className="selected" aria-label="List view"><List size={18} /></button></div>
         </div>
-        {error && <p className="notice">{error} Showing a small local preview while the directory reconnects.</p>}
+        {error && <p className="notice">{error}</p>}
         <div className="room-grid">{loading ? <p className="caption">Finding rooms...</p> : visibleRooms.map(room => <RoomCard key={room.id} room={room} />)}</div>
         {!loading && !visibleRooms.length && <p className="empty">Nothing matched that. Try another tag or host.</p>}
       </section>
-      <aside className="room-code">
-        <div><p className="eyebrow">private invite</p><h2>Room Code</h2><label><span className="sr-only">Room code</span><input placeholder="ABC123" maxLength={12} /></label><button className="cta">Join room <ArrowRight size={17} /></button></div>
-        <p>Your Stats.</p>
-      </aside>
+      <RoomCode />
     </section>
     <button className="new-room container wide" onClick={() => setShowCreate(true)}><Plus size={18} /> New room</button>
     {showCreate && <CreateRoom profile={profile} onClose={() => setShowCreate(false)} onCreated={room => { setRooms(current => [room, ...current]); setShowCreate(false) }} />}
@@ -67,7 +59,13 @@ function Directory() {
 }
 
 function RoomCard({ room }: { room: Room }) {
-  return <article className="room-card"><div className="room-art"><Music2 size={24} /></div><div className="room-copy"><h3>{room.name}</h3><p>{room.nowPlaying?.title ?? 'Nothing playing'} <span>·</span> {room.nowPlaying?.artist ?? `hosted by ${room.host}`}</p></div><div className="room-tags">{room.tags.map(tag => <span key={tag}>{tag}</span>)}</div><div className="room-meta"><span>{room.kind === 'channel' ? 'channel' : 'streamer queue'}</span><span><Users size={14} /> {room.listeners}</span></div><a className="join" href={`/rooms/${encodeURIComponent(room.id)}`} aria-label={`Enter ${room.name}`}><ArrowRight size={18} /></a></article>
+  return <article className="room-card"><div className="room-art"><Music2 size={24} /></div><div className="room-copy"><h3>{room.name}</h3><p>{room.nowPlaying?.title ?? 'No track reported'} <span>·</span> {room.nowPlaying?.artist ?? `hosted by ${room.host}`}</p></div><div className="room-tags">{room.tags.map(tag => <span key={tag}>{tag}</span>)}</div><div className="room-meta"><span>{room.kind === 'channel' ? 'channel' : 'streamer queue'}</span><span><Users size={14} /> {room.listeners}</span></div><a className="join" href={`/rooms/${encodeURIComponent(room.id)}`} aria-label={`Enter ${room.name}`}><ArrowRight size={18} /></a></article>
+}
+
+function RoomCode() {
+  const [code, setCode] = useState('')
+  const submit = (event: FormEvent) => { event.preventDefault(); const normalized = code.replace(/[^a-z0-9]/gi, '').toUpperCase(); if (normalized.length === 6) window.location.assign(`https://audioplayer-production-5b83.up.railway.app/spectralis/web-share/?session=${normalized}`) }
+  return <aside className="room-code"><form onSubmit={submit}><p className="eyebrow">private invite</p><h2>Room Code</h2><label><span className="sr-only">Room code</span><input value={code} onChange={event => setCode(event.target.value)} placeholder="ABC123" maxLength={6} /></label><button className="cta" disabled={code.replace(/[^a-z0-9]/gi, '').length !== 6}>Join room <ArrowRight size={17} /></button></form></aside>
 }
 
 function CreateRoom({ profile, onClose, onCreated }: { profile: WardProfile | null; onClose: () => void; onCreated: (room: Room) => void }) {
@@ -91,26 +89,29 @@ function RoomView({ roomId }: { roomId: string }) {
   const [profile, setProfile] = useState<WardProfile | null>(null)
   const [room, setRoom] = useState<Room | null>(null)
   const [error, setError] = useState('')
-  const [playing, setPlaying] = useState(false)
   const [request, setRequest] = useState('')
-  const [queue, setQueue] = useState<string[]>(['Distant Signals — Mice Parade', 'Sometimes — My Bloody Valentine', 'Satellite — Guster', 'Just Like Honey — The Jesus and Mary Chain'])
+  const [queue, setQueue] = useState<SharedQueue | null>(null)
+  const [requestStatus, setRequestStatus] = useState('')
 
   useEffect(() => {
     void (async () => {
-      try { ward.hydrateCallback(); setProfile(await ward.profile()); setRoom(await api.room(roomId)) }
+      try {
+        ward.hydrateCallback(); setProfile(await ward.profile());
+        const currentRoom = await api.room(roomId); setRoom(currentRoom)
+        if (currentRoom.roomCode && currentRoom.kind === 'streamer_queue') setQueue(await api.sharedQueue(currentRoom.roomCode))
+      }
       catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not load this room.') }
     })()
   }, [roomId])
 
   const title = room?.name ?? 'Queue'
-  const track = room?.nowPlaying?.title ?? 'Nothing playing'
-  const artist = room?.nowPlaying?.artist ?? 'Waiting for the host'
-  const submitRequest = (event: FormEvent) => {
+  const track = queue?.nowPlayingTitle ?? room?.nowPlaying?.title ?? 'No track reported'
+  const artist = queue?.nowPlayingArtist ?? room?.nowPlaying?.artist ?? 'The host has not published playback metadata.'
+  const submitRequest = async (event: FormEvent) => {
     event.preventDefault()
-    const value = request.trim()
-    if (!value) return
-    setQueue(items => [...items, value])
-    setRequest('')
+    if (!room?.roomCode || !request.trim()) return
+    try { const result = await api.submitSharedQueue(room.roomCode, { url: request.trim(), displayName: profile?.name ?? profile?.preferred_username }); setRequest(''); setRequestStatus(`Added to the queue${result.position ? ` at #${result.position}` : ''}.`); setQueue(await api.sharedQueue(room.roomCode)) }
+    catch (cause) { setRequestStatus(cause instanceof Error ? cause.message : 'Could not add that request.') }
   }
 
   return <main className="room-app">
@@ -120,10 +121,9 @@ function RoomView({ roomId }: { roomId: string }) {
         <div className="room-topline"><a href="/" className="leave">Leave</a><span>{room?.kind === 'streamer_queue' ? 'streamer queue' : 'shared channel'}</span></div>
         {error && <p className="notice">{error}</p>}
         <div className="now-playing"><div className="cover"><Music2 size={54} /></div><div className="track-copy"><p className="eyebrow">now playing</p><h1>{track}</h1><p>{artist}</p></div></div>
-        <div className="transport"><button aria-label="Previous track">‹</button><button className="play" onClick={() => setPlaying(value => !value)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Ⅱ' : '▶'}</button><button aria-label="Next track">›</button></div>
-        <div className="progress"><span style={{ width: playing ? '41%' : '0%' }} /></div>
+        {room?.joinUrl ? <a className="cta live-link" href={room.joinUrl}>Open live player <ArrowRight size={17} /></a> : <p className="caption">This room is not live right now.</p>}
       </section>
-      <aside className="queue-panel"><div className="queue-heading"><h2>{title}</h2><p>{queue.length} songs lined up</p></div><ol>{queue.map((item, index) => <li key={`${item}-${index}`}><span>{index + 1}</span><p>{item}</p></li>)}</ol><form className="queue-request" onSubmit={submitRequest}><Search size={16} /><input value={request} onChange={event => setRequest(event.target.value)} placeholder="Add a request" /><button type="submit" aria-label="Add request"><Plus size={17} /></button></form></aside>
+      <aside className="queue-panel"><div className="queue-heading"><h2>{title}</h2><p>{queue ? `${queue.queueLength ?? queue.activeCount ?? 0} songs lined up` : room?.kind === 'streamer_queue' ? 'Queue opens when the host goes live.' : 'This is a listening channel.'}</p></div>{room?.kind === 'streamer_queue' && queue?.enabled && <form className="queue-request" onSubmit={submitRequest}><Search size={16} /><input value={request} onChange={event => setRequest(event.target.value)} placeholder="Paste a track link" /><button type="submit" aria-label="Add request"><Plus size={17} /></button></form>}{requestStatus && <p className="request-status">{requestStatus}</p>}</aside>
     </section>
   </main>
 }
