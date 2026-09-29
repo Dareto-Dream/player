@@ -17,3 +17,23 @@ body { min-width: 320px; }
 .modal-backdrop { position:fixed; z-index:10; inset:0; display:grid; place-items:center; padding:var(--spacing-2); background:rgba(0,0,0,.7); backdrop-filter:blur(7px); }.modal { width:min(100%, 34rem); display:grid; gap:var(--spacing-2); position:relative; }.modal label { gap:.4rem; }.modal .cta { margin-top:.4rem; }.close { position:absolute; right:.4rem; top:.4rem; background:transparent; color:var(--snow); padding:.25rem .6rem; font-size:1.5rem; }.form-error { color:var(--red); margin:0; }
 @media (min-width: 720px) { .join span { display:inline; }.join { padding:.625rem .8rem; } }
 @media (max-width: 700px) { .nav nav { display:none; }.nav .outline { font-size:0; padding:.55rem; }.nav .outline svg { width:19px; height:19px; }.hero { grid-template-columns:1fr; }.now-card { min-height:240px; }.room-grid { grid-template-columns:1fr; }.principles { grid-template-columns:1fr; gap:var(--spacing-3); }.section-heading { align-items:stretch; flex-direction:column; }.search { min-width:0; }.room-card { grid-template-columns:3.5rem 1fr auto; }.room-art { width:3.5rem; } }
+
+/* The directory is intentionally a tool, not a neon SaaS landing page. */
+.player-app { background: var(--background); }
+.directory { display:grid; grid-template-columns:minmax(14rem,.42fr) minmax(0,1fr); gap:var(--spacing-5); padding-top:var(--spacing-4); padding-bottom:var(--spacing-5); }
+.directory-intro { border-top:3px solid var(--primary); padding-top:var(--spacing-2); align-self:start; position:sticky; top:var(--spacing-2); }
+.directory-intro h1 { font:var(--font-weight-normal) clamp(2rem,4vw,3.75rem)/1 var(--font-display); margin:0 0 var(--spacing-2); letter-spacing:.01em; }
+.directory-intro p:not(.eyebrow) { color:var(--smoke); max-width:26rem; }
+.directory-intro button { margin-top:var(--spacing-1); }
+.browse { min-width:0; padding:0; }
+.section-heading { padding-bottom:var(--spacing-2); border-bottom:1px solid var(--border); margin-bottom:var(--spacing-2); }
+.section-heading .title { font-size:clamp(1.4rem,3vw,2rem); }
+.room-grid { grid-template-columns:1fr; gap:0; border-top:1px solid var(--border); }
+.room-card { border:0; border-radius:0; border-bottom:1px solid var(--border); box-shadow:none; background:transparent; grid-template-columns:3.5rem 1fr auto; padding:var(--spacing-2) 0; transition:background var(--transition-fast); }
+.room-card:hover { background:var(--elevated); transform:none; }
+.room-art { width:3.5rem; background:var(--sunken); border-radius:var(--radii-sm); color:var(--primary); }
+.room-meta { font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+.room-card h3 { font-size:1.1rem; margin:.3rem 0 .1rem; }.room-card p { font-size:var(--font-2); }
+.tags span { color:var(--smoke); }.join { color:var(--text); text-decoration:none; background:transparent; border:1px solid transparent; border-radius:var(--radii-sm); padding:.45rem .6rem; }.join:hover { color:var(--primary); background:var(--sunken); }
+.notes { display:grid; grid-template-columns:repeat(3,1fr); gap:0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:var(--spacing-5); }.notes > div { padding:var(--spacing-3); border-right:1px solid var(--border); }.notes > div:last-child { border-right:0; }.notes svg { color:var(--primary); }.notes h3 { margin:.75rem 0 .4rem; font-size:1rem; }.notes p { margin:0; color:var(--smoke); font-size:var(--font-2); }
+@media (max-width:700px) { .directory { grid-template-columns:1fr; gap:var(--spacing-4); padding-top:var(--spacing-3); }.directory-intro { position:static; }.notes { grid-template-columns:1fr; }.notes > div { border-right:0; border-bottom:1px solid var(--border); }.notes > div:last-child { border-bottom:0; } }
