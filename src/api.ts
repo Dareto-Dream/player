@@ -1,6 +1,6 @@
 import { ward } from './auth'
 
-const base = (import.meta.env.VITE_PLAYER_API ?? 'https://audioplayer-production.up.railway.app').replace(/\/$/, '')
+const base = (import.meta.env.VITE_PLAYER_API ?? 'https://audioplayer-production-5b83.up.railway.app').replace(/\/$/, '')
 
 export type Room = {
   id: string
