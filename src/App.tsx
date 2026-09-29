@@ -11,6 +11,11 @@ const starterRooms: Room[] = [
 const securityCopy = { anyone: 'Anyone can join', ward: 'Ward members', approval: 'Waiting room' }
 
 function App() {
+  const roomId = /^\/rooms\/([^/]+)$/.exec(window.location.pathname)?.[1]
+  return roomId ? <RoomView roomId={decodeURIComponent(roomId)} /> : <Directory />
+}
+
+function Directory() {
   const [profile, setProfile] = useState<WardProfile | null>(null)
   const [rooms, setRooms] = useState<Room[]>(starterRooms)
   const [loading, setLoading] = useState(true)
@@ -81,3 +86,44 @@ function CreateRoom({ profile, onClose, onCreated }: { profile: WardProfile | nu
 }
 
 export default App
+
+function RoomView({ roomId }: { roomId: string }) {
+  const [profile, setProfile] = useState<WardProfile | null>(null)
+  const [room, setRoom] = useState<Room | null>(null)
+  const [error, setError] = useState('')
+  const [playing, setPlaying] = useState(false)
+  const [request, setRequest] = useState('')
+  const [queue, setQueue] = useState<string[]>(['Distant Signals — Mice Parade', 'Sometimes — My Bloody Valentine', 'Satellite — Guster', 'Just Like Honey — The Jesus and Mary Chain'])
+
+  useEffect(() => {
+    void (async () => {
+      try { ward.hydrateCallback(); setProfile(await ward.profile()); setRoom(await api.room(roomId)) }
+      catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not load this room.') }
+    })()
+  }, [roomId])
+
+  const title = room?.name ?? 'Queue'
+  const track = room?.nowPlaying?.title ?? 'Nothing playing'
+  const artist = room?.nowPlaying?.artist ?? 'Waiting for the host'
+  const submitRequest = (event: FormEvent) => {
+    event.preventDefault()
+    const value = request.trim()
+    if (!value) return
+    setQueue(items => [...items, value])
+    setRequest('')
+  }
+
+  return <main className="room-app">
+    <header className="nav container wide"><a className="brand" href="/"><Disc3 size={24} aria-hidden="true" /><span>Spectralis</span><small>player</small></a>{profile ? <button className="account-button" onClick={() => { ward.signOut(); setProfile(null) }}>{profile.name ?? profile.preferred_username}</button> : <button className="outline" onClick={() => void ward.signIn()}><LogIn size={16} /> Sign in</button>}</header>
+    <section className="room-layout container wide">
+      <section className="listener">
+        <div className="room-topline"><a href="/" className="leave">Leave</a><span>{room?.kind === 'streamer_queue' ? 'streamer queue' : 'shared channel'}</span></div>
+        {error && <p className="notice">{error}</p>}
+        <div className="now-playing"><div className="cover"><Music2 size={54} /></div><div className="track-copy"><p className="eyebrow">now playing</p><h1>{track}</h1><p>{artist}</p></div></div>
+        <div className="transport"><button aria-label="Previous track">‹</button><button className="play" onClick={() => setPlaying(value => !value)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? 'Ⅱ' : '▶'}</button><button aria-label="Next track">›</button></div>
+        <div className="progress"><span style={{ width: playing ? '41%' : '0%' }} /></div>
+      </section>
+      <aside className="queue-panel"><div className="queue-heading"><h2>{title}</h2><p>{queue.length} songs lined up</p></div><ol>{queue.map((item, index) => <li key={`${item}-${index}`}><span>{index + 1}</span><p>{item}</p></li>)}</ol><form className="queue-request" onSubmit={submitRequest}><Search size={16} /><input value={request} onChange={event => setRequest(event.target.value)} placeholder="Add a request" /><button type="submit" aria-label="Add request"><Plus size={17} /></button></form></aside>
+    </section>
+  </main>
+}

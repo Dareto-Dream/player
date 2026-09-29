@@ -27,6 +27,7 @@ async function request<T>(path: string, init: RequestInit = {}) {
 
 export const api = {
   browse: () => request<{ rooms: Room[] }>('/player/v1/rooms'),
+  room: (id: string) => request<Room>(`/player/v1/rooms/${encodeURIComponent(id)}`),
   createRoom: (room: Pick<Room, 'name' | 'description' | 'kind' | 'tags' | 'security'>) => request<Room>('/player/v1/rooms', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(room),
   }),
