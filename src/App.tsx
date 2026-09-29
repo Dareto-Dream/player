@@ -15,6 +15,9 @@ function Directory() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [activeTags, setActiveTags] = useState<string[]>([])
+  const [showTags, setShowTags] = useState(false)
+  const [view, setView] = useState<'grid' | 'list'>(() => sessionStorage.getItem('room-view') === 'grid' ? 'grid' : 'list')
   const [showCreate, setShowCreate] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,7 +34,10 @@ function Directory() {
     void boot()
   }, [])
 
-  const visibleRooms = rooms.filter(room => `${room.name} ${room.host} ${room.tags.join(' ')}`.toLowerCase().includes(search.toLowerCase()))
+  const tags = [...new Set(rooms.flatMap(room => room.tags.map(tag => tag.trim()).filter(Boolean)))].sort((a, b) => a.localeCompare(b))
+  const visibleRooms = rooms.filter(room => `${room.name} ${room.host} ${room.tags.join(' ')}`.toLowerCase().includes(search.toLowerCase()) && activeTags.every(tag => room.tags.some(roomTag => roomTag.toLowerCase() === tag.toLowerCase())))
+  const setDirectoryView = (next: 'grid' | 'list') => { setView(next); sessionStorage.setItem('room-view', next) }
+  const toggleTag = (tag: string) => setActiveTags(current => current.includes(tag) ? current.filter(item => item !== tag) : [...current, tag])
 
   return <main className="player-app">
     <header className="nav container wide">
@@ -44,12 +50,13 @@ function Directory() {
       <section className="browse" id="browse">
         <div className="directory-tools">
           <label className="search"><Search size={18} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Find your group" /></label>
-          <button className="tag-filter"><SlidersHorizontal size={17} /> Tags</button>
-          <div className="view-toggle" aria-label="Directory view"><button aria-label="Grid view"><Grid2X2 size={18} /></button><button className="selected" aria-label="List view"><List size={18} /></button></div>
+          <button className={`tag-filter${activeTags.length ? ' active' : ''}`} onClick={() => setShowTags(value => !value)} aria-expanded={showTags}><SlidersHorizontal size={17} /> Tags{activeTags.length ? ` (${activeTags.length})` : ''}</button>
+          <div className="view-toggle" aria-label="Directory view"><button className={view === 'grid' ? 'selected' : ''} onClick={() => setDirectoryView('grid')} aria-label="Grid view" aria-pressed={view === 'grid'}><Grid2X2 size={18} /></button><button className={view === 'list' ? 'selected' : ''} onClick={() => setDirectoryView('list')} aria-label="List view" aria-pressed={view === 'list'}><List size={18} /></button></div>
         </div>
+        {showTags && <div className="tag-menu"><button className={!activeTags.length ? 'selected' : ''} onClick={() => setActiveTags([])}>All tags</button>{tags.map(tag => <button className={activeTags.includes(tag) ? 'selected' : ''} onClick={() => toggleTag(tag)} key={tag}>{tag}</button>)}</div>}
         {error && <p className="notice">{error}</p>}
-        <div className="room-grid">{loading ? <p className="caption">Finding rooms...</p> : visibleRooms.map(room => <RoomCard key={room.id} room={room} />)}</div>
-        {!loading && !visibleRooms.length && <p className="empty">Nothing matched that. Try another tag or host.</p>}
+        <div className={`room-grid ${view}`}>{loading ? <p className="caption">Finding rooms...</p> : visibleRooms.map(room => <RoomCard key={room.id} room={room} />)}</div>
+        {!loading && !visibleRooms.length && <div className="empty"><strong>{rooms.length ? 'Nothing matched those filters.' : 'No public rooms are open right now.'}</strong><span>{rooms.length ? 'Clear a tag or try a different search.' : 'Use a private room code to join someone directly.'}</span></div>}
       </section>
       <RoomCode />
     </section>
