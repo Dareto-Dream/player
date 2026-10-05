@@ -1,109 +1,143 @@
-import { unzip } from 'fflate'
-import type { Playback } from './api'
+import { unzip } from "fflate";
+import type { Playback } from "./api";
+import { base } from "./api";
+import { ward } from "./auth";
+export type RichMedia = { cover?: string; lyrics?: string };
 
-const MAX_AUDIO_BYTES = 128 * 1024 * 1024
+const MAX_AUDIO_BYTES = 128 * 1024 * 1024;
 
 export async function packageAudio(
   url: string,
   signal: AbortSignal,
+  onMetadata?: (metadata: RichMedia) => void,
 ): Promise<string> {
-  const response = await fetch(url, { signal })
-  if (!response.ok) throw new Error('The host’s audio is not available yet.')
-  if (Number(response.headers.get('content-length')) > MAX_AUDIO_BYTES)
-    throw new Error('This track is too large for browser playback.')
+  const token = ward.token();
+  const headers =
+    token && new URL(url, base).origin === new URL(base).origin
+      ? { Authorization: `Bearer ${token}` }
+      : undefined;
+  const response = await fetch(url, { signal, headers });
+  if (!response.ok) throw new Error("The host’s audio is not available yet.");
+  if (Number(response.headers.get("content-length")) > MAX_AUDIO_BYTES)
+    throw new Error("This track is too large for browser playback.");
   // Limit streamed responses too; content-length isn't always present.
-  const reader = response.body?.getReader()
-  if (!reader) throw new Error('Could not read the audio download.')
-  const chunks: Uint8Array[] = []
-  let size = 0
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Could not read the audio download.");
+  const chunks: Uint8Array[] = [];
+  let size = 0;
   try {
     while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      size += value.length
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.length;
       if (size > MAX_AUDIO_BYTES) {
-        await reader.cancel()
-        throw new Error('This track is too large for browser playback.')
+        await reader.cancel();
+        throw new Error("This track is too large for browser playback.");
       }
-      chunks.push(value)
+      chunks.push(value);
     }
   } finally {
-    reader.releaseLock()
+    reader.releaseLock();
   }
-  const data = new Uint8Array(size)
-  let offset = 0
+  const data = new Uint8Array(size);
+  let offset = 0;
   for (const chunk of chunks) {
-    data.set(chunk, offset)
-    offset += chunk.length
+    data.set(chunk, offset);
+    offset += chunk.length;
   }
   const bytes = await new Promise<{ name: string; data: Uint8Array }>(
     (resolve, reject) => {
       if (signal.aborted) {
-        reject(new DOMException('Cancelled', 'AbortError'))
-        return
+        reject(new DOMException("Cancelled", "AbortError"));
+        return;
       }
       const cancel = unzip(
         data,
         {
           filter: (entry) =>
-            /^audio\/track\.(mp3|wav|flac|ogg|opus|m4a|aac)$/i.test(
+            (/^audio\/track\.(mp3|wav|flac|ogg|opus|m4a|aac)$/i.test(
               entry.name,
-            ) && entry.originalSize <= MAX_AUDIO_BYTES,
+            ) &&
+              entry.originalSize <= MAX_AUDIO_BYTES) ||
+            (["artwork/cover", "audio/track.lrc"].includes(entry.name) &&
+              entry.originalSize < 2 * 1024 * 1024),
         },
         (error, files) => {
-          signal.removeEventListener('abort', onAbort)
+          signal.removeEventListener("abort", onAbort);
           if (error) {
-            reject(new Error('The shared audio package could not be opened.'))
-            return
+            reject(new Error("The shared audio package could not be opened."));
+            return;
           }
-          const entry = Object.entries(files)[0]
+          const entry = Object.entries(files).find(([name]) =>
+            /^audio\/track\.(mp3|wav|flac|ogg|opus|m4a|aac)$/i.test(name),
+          );
           if (!entry) {
             reject(
               new Error(
-                'This package does not contain browser-playable audio.',
+                "This package does not contain browser-playable audio.",
               ),
-            )
-            return
+            );
+            return;
           }
-          resolve({ name: entry[0], data: entry[1] })
+          if (!signal.aborted && onMetadata) {
+            const cover = files["artwork/cover"];
+            onMetadata({
+              cover: cover
+                ? URL.createObjectURL(
+                    new Blob([cover as BlobPart], {
+                      type:
+                        cover[0] === 137
+                          ? "image/png"
+                          : cover[0] === 255
+                            ? "image/jpeg"
+                            : "image/webp",
+                    }),
+                  )
+                : undefined,
+              lyrics: files["audio/track.lrc"]
+                ? new TextDecoder().decode(files["audio/track.lrc"])
+                : undefined,
+            });
+          }
+          resolve({ name: entry[0], data: entry[1] });
         },
-      )
+      );
       function onAbort() {
-        cancel()
-        reject(new DOMException('Cancelled', 'AbortError'))
+        cancel();
+        reject(new DOMException("Cancelled", "AbortError"));
       }
-      signal.addEventListener('abort', onAbort, { once: true })
+      signal.addEventListener("abort", onAbort, { once: true });
     },
-  )
-  if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+  );
+  if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
   const extensions: Record<string, string> = {
-    mp3: 'audio/mpeg',
-    wav: 'audio/wav',
-    flac: 'audio/flac',
-    ogg: 'audio/ogg',
-    opus: 'audio/ogg',
-    m4a: 'audio/mp4',
-    aac: 'audio/aac',
-  }
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    flac: "audio/flac",
+    ogg: "audio/ogg",
+    opus: "audio/ogg",
+    m4a: "audio/mp4",
+    aac: "audio/aac",
+  };
   return URL.createObjectURL(
     new Blob([new Uint8Array(bytes.data)], {
-      type: extensions[bytes.name.split('.').pop()!.toLowerCase()],
+      type: extensions[bytes.name.split(".").pop()!.toLowerCase()],
     }),
-  )
+  );
 }
 
 export function hostPosition(playback: Playback) {
-  const clock = Date.parse(playback.hostClockUtc || '')
+  const clock = Date.parse(playback.hostClockUtc || "");
   const elapsed =
     playback.isPlaying && Number.isFinite(clock)
       ? Math.max(0, (Date.now() - clock) / 1000)
-      : 0
-  return Math.max(0, (Number(playback.positionSeconds) || 0) + elapsed)
+      : 0;
+  return Math.max(0, (Number(playback.positionSeconds) || 0) + elapsed);
 }
 
 export function timeLabel(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   return `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60)
     .toString()
-    .padStart(2, '0')}`
+    .padStart(2, "0")}`;
 }

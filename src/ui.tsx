@@ -45,6 +45,7 @@ export function Header({
         <span className="header-note">a little place to listen.</span>
         {account.profile ? (
           <div className="account">
+            <a href="/my">Your rooms</a>
             <span>
               {account.profile.name ||
                 account.profile.preferred_username ||
