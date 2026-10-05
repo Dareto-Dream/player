@@ -214,7 +214,7 @@ async function sessionRoutes(page: Page) {
     },
   ]
   const code = 'ABC123'
-  const base = 'https://audioplayer-production-5b83.up.railway.app'
+  const base = 'https://spectralis-api.deltavdevs.com'
   let paused = false
   let position = 3
   await page.route('**/shared-play/v2/sessions/**', async (route) => {
@@ -345,6 +345,7 @@ test('finished audio waits for the next host track instead of looping', async ({
 })
 
 test('room screenshots and mobile queue controls', async ({ page }) => {
+  await page.route('**/player/v1/rooms/after-hours/access',route=>route.fulfill({json:{status:'allowed',isOwner:false}}))
   await page.route('**/player/v1/rooms/after-hours', (route) =>
     route.fulfill({ json: rooms[0] }),
   )

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -16,9 +16,9 @@ import {
   SlidersHorizontal,
   Users,
   X,
-} from 'lucide-react'
-import { api, type Room } from './api'
-import { ward, type WardProfile } from './auth'
+} from "lucide-react";
+import { api, type Room } from "./api";
+import { ward, type WardProfile } from "./auth";
 import {
   Artwork,
   ErrorNotice,
@@ -27,117 +27,138 @@ import {
   savedValue,
   saveValue,
   useAccount,
-} from './ui'
+} from "./ui";
 
 const normalize = (value: string) =>
-  value.trim().replace(/^#/, '').toLocaleLowerCase()
-type Filter = 'all' | Room['kind']
+  value.trim().replace(/^#/, "").toLocaleLowerCase();
+type Filter = "all" | Room["kind"];
 const securityLabels = {
-  anyone: 'Open to everyone',
-  ward: 'Ward members',
-  approval: 'Host approval',
-}
+  anyone: "Open to everyone",
+  ward: "Ward members",
+  approval: "Host approval",
+};
 
 export default function Directory() {
-  const account = useAccount()
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
-  const [activeTags, setActiveTags] = useState<string[]>([])
-  const [showTags, setShowTags] = useState(false)
-  const [tagSearch, setTagSearch] = useState('')
-  const [kind, setKind] = useState<Filter>('all')
-  const [sort, setSort] = useState('live')
+  const account = useAccount();
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [showTags, setShowTags] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+  const [kind, setKind] = useState<Filter>("all");
+  const [sort, setSort] = useState("live");
   const [view, setView] = useState(() =>
-    savedValue('room-view', 'grid') === 'list' ? 'list' : 'grid',
-  )
-  const [showCreate, setShowCreate] = useState(false)
-  const [refresh, setRefresh] = useState(0)
-  const tagPanel = useRef<HTMLDivElement>(null)
+    savedValue("room-view", "grid") === "list" ? "list" : "grid",
+  );
+  const [showCreate, setShowCreate] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const [myRoom, setMyRoom] = useState<Room | null>(null);
+  const tagPanel = useRef<HTMLDivElement>(null);
+
+  // One permanent room per account: someone who has one goes to it instead of making another.
+  useEffect(() => {
+    if (!account.profile) {
+      setMyRoom(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .myRoom()
+      .then(({ room }) => {
+        if (!cancelled) setMyRoom(room);
+      })
+      .catch(() => {
+        if (!cancelled) setMyRoom(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [account.profile]);
 
   useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout>
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
     const load = async () => {
       try {
-        const data = await api.browse()
+        const data = await api.browse();
         if (!cancelled) {
-          setRooms(data.rooms)
-          setError('')
+          setRooms(data.rooms);
+          setError("");
         }
       } catch (cause) {
         if (!cancelled)
           setError(
             cause instanceof Error
               ? cause.message
-              : 'The directory is unavailable.',
-          )
+              : "The directory is unavailable.",
+          );
       } finally {
         if (!cancelled) {
-          setLoading(false)
-          timer = setTimeout(load, 30_000)
+          setLoading(false);
+          timer = setTimeout(load, 30_000);
         }
       }
-    }
-    void load()
+    };
+    void load();
     return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [refresh])
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [refresh]);
 
   useEffect(() => {
-    if (!showTags) return
+    if (!showTags) return;
     const dismiss = (event: PointerEvent) => {
-      if (!tagPanel.current?.contains(event.target as Node)) setShowTags(false)
-    }
-    document.addEventListener('pointerdown', dismiss)
-    return () => document.removeEventListener('pointerdown', dismiss)
-  }, [showTags])
+      if (!tagPanel.current?.contains(event.target as Node)) setShowTags(false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [showTags]);
 
-  const tagCounts = new Map<string, number>()
+  const tagCounts = new Map<string, number>();
   rooms.forEach((room) =>
     new Set(room.tags.map(normalize).filter(Boolean)).forEach((tag) =>
       tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1),
     ),
-  )
-  const tags = [...tagCounts.keys()].sort((a, b) => a.localeCompare(b))
+  );
+  const tags = [...tagCounts.keys()].sort((a, b) => a.localeCompare(b));
   const filtered = rooms
     .filter((room) => {
       const text =
-        `${room.name} ${room.host} ${room.description || ''} ${room.tags.join(' ')}`.toLocaleLowerCase()
+        `${room.name} ${room.host} ${room.description || ""} ${room.tags.join(" ")}`.toLocaleLowerCase();
       return (
-        (kind === 'all' || room.kind === kind) &&
+        (kind === "all" || room.kind === kind) &&
         text.includes(normalize(search)) &&
         activeTags.every((tag) => room.tags.map(normalize).includes(tag))
-      )
+      );
     })
     .sort((a, b) =>
-      sort === 'name'
+      sort === "name"
         ? a.name.localeCompare(b.name)
-        : sort === 'listeners'
+        : sort === "listeners"
           ? b.listeners - a.listeners
           : Number(Boolean(b.isLive)) - Number(Boolean(a.isLive)) ||
             b.listeners - a.listeners ||
             a.name.localeCompare(b.name),
-    )
+    );
   const reset = () => {
-    setSearch('')
-    setActiveTags([])
-    setKind('all')
-  }
+    setSearch("");
+    setActiveTags([]);
+    setKind("all");
+  };
   const toggleTag = (tag: string) =>
     setActiveTags((current) =>
       current.includes(tag)
         ? current.filter((item) => item !== tag)
         : [...current, tag],
-    )
-  const filtersApplied = Boolean(search || activeTags.length || kind !== 'all')
+    );
+  const filtersApplied = Boolean(search || activeTags.length || kind !== "all");
   const changeView = (next: string) => {
-    setView(next)
-    saveValue('room-view', next)
-  }
+    setView(next);
+    saveValue("room-view", next);
+  };
 
   return (
     <div className="app">
@@ -153,12 +174,21 @@ export default function Directory() {
             </h1>
             <p>Public channels &amp; streamer queues.</p>
           </div>
-          <button
-            className="button button-light"
-            onClick={() => setShowCreate(true)}
-          >
-            <Plus size={16} /> New room
-          </button>
+          {myRoom ? (
+            <a
+              className="button button-light"
+              href={`/rooms/${encodeURIComponent(myRoom.id)}`}
+            >
+              Your room
+            </a>
+          ) : (
+            <button
+              className="button button-light"
+              onClick={() => setShowCreate(true)}
+            >
+              <Plus size={16} /> New room
+            </button>
+          )}
         </div>
         <div className="directory-layout">
           <section className="directory-main" aria-label="Public rooms">
@@ -174,7 +204,7 @@ export default function Directory() {
                 {search && (
                   <button
                     className="icon-button"
-                    onClick={() => setSearch('')}
+                    onClick={() => setSearch("")}
                     type="button"
                     aria-label="Clear search"
                   >
@@ -186,14 +216,14 @@ export default function Directory() {
                 className="tag-control"
                 ref={tagPanel}
                 onKeyDown={(event) => {
-                  if (event.key === 'Escape') {
-                    setShowTags(false)
-                    tagPanel.current?.querySelector('button')?.focus()
+                  if (event.key === "Escape") {
+                    setShowTags(false);
+                    tagPanel.current?.querySelector("button")?.focus();
                   }
                 }}
               >
                 <button
-                  className={`button button-quiet tag-toggle ${activeTags.length ? 'is-selected' : ''}`}
+                  className={`button button-quiet tag-toggle ${activeTags.length ? "is-selected" : ""}`}
                   onClick={() => setShowTags((value) => !value)}
                   aria-expanded={showTags}
                   aria-controls="tag-panel"
@@ -272,16 +302,16 @@ export default function Directory() {
                 <button
                   aria-label="Grid view"
                   title="Grid view"
-                  aria-pressed={view === 'grid'}
-                  onClick={() => changeView('grid')}
+                  aria-pressed={view === "grid"}
+                  onClick={() => changeView("grid")}
                 >
                   <Grid2X2 size={17} />
                 </button>
                 <button
                   aria-label="List view"
                   title="List view"
-                  aria-pressed={view === 'list'}
-                  onClick={() => changeView('list')}
+                  aria-pressed={view === "list"}
+                  onClick={() => changeView("list")}
                 >
                   <List size={18} />
                 </button>
@@ -291,9 +321,9 @@ export default function Directory() {
               <div className="kind-tabs" role="group" aria-label="Room type">
                 {(
                   [
-                    ['all', 'All rooms'],
-                    ['channel', 'Channels'],
-                    ['streamer_queue', 'Queues'],
+                    ["all", "All rooms"],
+                    ["channel", "Channels"],
+                    ["streamer_queue", "Queues"],
                   ] as const
                 ).map(([value, label]) => (
                   <button
@@ -341,15 +371,15 @@ export default function Directory() {
             <div className="results-heading">
               <span aria-live="polite">
                 {loading
-                  ? 'Tuning in…'
-                  : `${filtered.length} ${filtered.length === 1 ? 'room' : 'rooms'}`}
+                  ? "Tuning in…"
+                  : `${filtered.length} ${filtered.length === 1 ? "room" : "rooms"}`}
               </span>
               <span>
                 <i
                   className={
                     rooms.some((room) => room.isLive)
-                      ? 'status-dot live'
-                      : 'status-dot'
+                      ? "status-dot live"
+                      : "status-dot"
                   }
                 />
                 {rooms.filter((room) => room.isLive).length} on air
@@ -367,9 +397,9 @@ export default function Directory() {
                     key={room.id}
                     room={room}
                     onTag={(tag) => {
-                      const normalized = normalize(tag)
+                      const normalized = normalize(tag);
                       if (!activeTags.includes(normalized))
-                        setActiveTags((current) => [...current, normalized])
+                        setActiveTags((current) => [...current, normalized]);
                     }}
                   />
                 ))}
@@ -383,19 +413,19 @@ export default function Directory() {
                 </div>
                 <h2>
                   {filtersApplied
-                    ? 'Nothing on this frequency.'
-                    : 'Quiet in here for now.'}
+                    ? "Nothing on this frequency."
+                    : "Quiet in here for now."}
                 </h2>
                 <p>
                   {filtersApplied
-                    ? 'Try another name or remove a filter.'
-                    : 'No public rooms yet. Have an invite? You can still join with a room code.'}
+                    ? "Try another name or remove a filter."
+                    : "No public rooms yet. Have an invite? You can still join with a room code."}
                 </p>
                 <button
                   className="button button-quiet"
                   onClick={filtersApplied ? reset : () => setShowCreate(true)}
                 >
-                  {filtersApplied ? 'Clear filters' : 'Create a room'}
+                  {filtersApplied ? "Clear filters" : "Create a room"}
                   <ArrowRight size={15} />
                 </button>
               </div>
@@ -429,22 +459,22 @@ export default function Directory() {
           profile={account.profile}
           onClose={() => setShowCreate(false)}
           onCreated={(room) => {
-            window.location.assign(`/rooms/${encodeURIComponent(room.id)}`)
+            window.location.assign(`/rooms/${encodeURIComponent(room.id)}`);
           }}
         />
       )}
     </div>
-  )
+  );
 }
 
 function RoomCard({
   room,
   onTag,
 }: {
-  room: Room
-  onTag: (tag: string) => void
+  room: Room;
+  onTag: (tag: string) => void;
 }) {
-  const path = `/rooms/${encodeURIComponent(room.id)}`
+  const path = `/rooms/${encodeURIComponent(room.id)}`;
   return (
     <article className="room-card">
       <a className="room-cover" href={path} tabIndex={-1} aria-hidden="true">
@@ -452,21 +482,21 @@ function RoomCard({
           name={room.name}
           src={room.bannerUrl || room.artwork || room.nowPlaying?.artwork}
         />
-        <span className={`room-status ${room.isLive ? 'on-air' : ''}`}>
+        <span className={`room-status ${room.isLive ? "on-air" : ""}`}>
           <i className="status-dot" />
-          {room.isLive ? 'ON AIR' : 'OFFLINE'}
+          {room.isLive ? "ON AIR" : "OFFLINE"}
         </span>
       </a>
       <div className="room-card-body">
         <div className="room-kind">
-          {room.kind === 'streamer_queue' ? (
+          {room.kind === "streamer_queue" ? (
             <List size={12} />
           ) : (
             <Radio size={12} />
           )}
-          {room.kind === 'streamer_queue' ? 'STREAMER QUEUE' : 'CHANNEL'}
+          {room.kind === "streamer_queue" ? "STREAMER QUEUE" : "CHANNEL"}
           <span title={securityLabels[room.security]}>
-            {room.security !== 'anyone' && <LockKeyhole size={12} />}
+            {room.security !== "anyone" && <LockKeyhole size={12} />}
           </span>
         </div>
         <h2>
@@ -481,13 +511,13 @@ function RoomCard({
                 {room.nowPlaying.title}
                 {room.nowPlaying.artist && (
                   <span className="track-artist">
-                    {' '}
+                    {" "}
                     · {room.nowPlaying.artist}
                   </span>
                 )}
               </>
             ) : (
-              'Between sessions'
+              "Between sessions"
             )}
           </span>
         </div>
@@ -520,21 +550,21 @@ function RoomCard({
         <ArrowUpRight size={18} />
       </a>
     </article>
-  )
+  );
 }
 
 function RoomCode() {
-  const [code, setCode] = useState('')
-  const [error, setError] = useState('')
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
   const submit = (event: FormEvent) => {
-    event.preventDefault()
-    const normalized = code.replace(/[\s-]/g, '').toUpperCase()
+    event.preventDefault();
+    const normalized = code.replace(/[\s-]/g, "").toUpperCase();
     if (!/^[A-Z0-9]{6}$/.test(normalized)) {
-      setError('Enter the six-character code from your invite.')
-      return
+      setError("Enter the six-character code from your invite.");
+      return;
     }
-    window.location.assign(`/sessions/${normalized}`)
-  }
+    window.location.assign(`/sessions/${normalized}`);
+  };
   return (
     <section className="invite-panel">
       <div className="panel-index">
@@ -552,14 +582,14 @@ function RoomCode() {
           className="code-input"
           value={code}
           onChange={(event) => {
-            setCode(event.target.value.toUpperCase())
-            setError('')
+            setCode(event.target.value.toUpperCase());
+            setError("");
           }}
           placeholder="ABC123"
           autoComplete="off"
           spellCheck={false}
           maxLength={12}
-          aria-describedby={error ? 'code-error' : undefined}
+          aria-describedby={error ? "code-error" : undefined}
           aria-invalid={!!error}
         />
         <button className="button button-primary" type="submit">
@@ -572,23 +602,24 @@ function RoomCode() {
         )}
       </form>
     </section>
-  )
+  );
 }
 
 function RecentRooms({ rooms }: { rooms: Room[] }) {
-  let ids: string[] = []
+  let ids: string[] = [];
   try {
-    const value = JSON.parse(savedValue('recent-rooms', '[]'))
-    if (Array.isArray(value)) ids = value.filter((id) => typeof id === 'string')
+    const value = JSON.parse(savedValue("recent-rooms", "[]"));
+    if (Array.isArray(value))
+      ids = value.filter((id) => typeof id === "string");
   } catch {
     /* Ignore corrupt browser history. */
   }
   const recent = ids
     .flatMap((id) => {
-      const room = rooms.find((item) => item.id === id)
-      return room ? [room] : []
+      const room = rooms.find((item) => item.id === id);
+      return room ? [room] : [];
     })
-    .slice(0, 3)
+    .slice(0, 3);
   return (
     <section className="recent-panel">
       <div className="section-label">
@@ -604,7 +635,7 @@ function RecentRooms({ rooms }: { rooms: Room[] }) {
             <Artwork name={room.name} src={room.iconUrl} />
             <span>
               {room.name}
-              <small>{room.isLive ? 'On air' : 'Offline'}</small>
+              <small>{room.isLive ? "On air" : "Offline"}</small>
             </span>
             <ArrowUpRight size={14} />
           </a>
@@ -613,7 +644,7 @@ function RecentRooms({ rooms }: { rooms: Room[] }) {
         <p>Your recently opened channels will show up here.</p>
       )}
     </section>
-  )
+  );
 }
 
 function CreateRoom({
@@ -621,38 +652,39 @@ function CreateRoom({
   onClose,
   onCreated,
 }: {
-  profile: WardProfile | null
-  onClose: () => void
-  onCreated: (room: Room) => void
+  profile: WardProfile | null;
+  onClose: () => void;
+  onCreated: (room: Room) => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
-  const [name, setName] = useState('')
-  const [kind, setKind] = useState<Room['kind']>('channel')
-  const [security, setSecurity] = useState<Room['security']>('anyone')
-  const [tags, setTags] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState<Room["kind"]>("channel");
+  const [security, setSecurity] = useState<Room["security"]>("anyone");
+  const [tags, setTags] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
   useEffect(() => {
-    const element = dialog.current
-    const previous = document.activeElement as HTMLElement | null
-    element?.showModal()
+    const element = dialog.current;
+    const previous = document.activeElement as HTMLElement | null;
+    element?.showModal();
     return () => {
-      element?.close()
-      previous?.focus()
-    }
-  }, [])
+      element?.close();
+      previous?.focus();
+    };
+  }, []);
   const submit = async (event: FormEvent) => {
-    event.preventDefault()
+    event.preventDefault();
     const parsedTags = [
-      ...new Set(tags.split(',').map(normalize).filter(Boolean)),
-    ]
+      ...new Set(tags.split(",").map(normalize).filter(Boolean)),
+    ];
     if (parsedTags.length > 3) {
-      setError('Choose up to three tags.')
-      return
+      setError("Choose up to three tags.");
+      return;
     }
-    if (busy) return
-    setBusy(true)
-    setError('')
+    if (busy) return;
+    setBusy(true);
+    setError("");
     try {
       onCreated(
         await api.createRoom({
@@ -660,15 +692,28 @@ function CreateRoom({
           kind,
           security,
           tags: parsedTags,
+          isPublic,
         }),
-      )
+      );
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : 'Could not create the room.',
-      )
-      setBusy(false)
+      const message =
+        cause instanceof Error ? cause.message : "Could not create the room.";
+      // Made one on another device a moment ago: take them to it.
+      if (/already have a room/i.test(message)) {
+        try {
+          const { room } = await api.myRoom();
+          if (room) {
+            onCreated(room);
+            return;
+          }
+        } catch {
+          /* fall through to the message */
+        }
+      }
+      setError(message);
+      setBusy(false);
     }
-  }
+  };
   return (
     <dialog
       ref={dialog}
@@ -676,7 +721,7 @@ function CreateRoom({
       aria-labelledby="create-title"
       onCancel={onClose}
       onClick={(event) => {
-        if (event.target === dialog.current && !busy) onClose()
+        if (event.target === dialog.current && !busy) onClose();
       }}
     >
       <div className="dialog-content">
@@ -705,6 +750,32 @@ function CreateRoom({
             <p className="field-help">
               Joining a private Shared Play invite doesn’t need an account.
             </p>
+            <button
+              className="button button-quiet"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const queue = await api.createStreamer();
+                  saveValue(`queue-owner-${queue.roomId}`, queue.ownerToken);
+                  await api.streamerSettings(queue.roomId, {
+                    ownerToken: queue.ownerToken,
+                    enabled: true,
+                  });
+                  window.location.assign(`/queues/${queue.roomId}`);
+                } catch (e) {
+                  setError((e as Error).message);
+                  setBusy(false);
+                }
+              }}
+            >
+              Create a private streamer queue
+            </button>
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
           </div>
         ) : (
           <form className="room-form" onSubmit={submit}>
@@ -724,7 +795,7 @@ function CreateRoom({
                 <select
                   value={kind}
                   onChange={(event) =>
-                    setKind(event.target.value as Room['kind'])
+                    setKind(event.target.value as Room["kind"])
                   }
                 >
                   <option value="channel">Channel</option>
@@ -736,7 +807,7 @@ function CreateRoom({
                 <select
                   value={security}
                   onChange={(event) =>
-                    setSecurity(event.target.value as Room['security'])
+                    setSecurity(event.target.value as Room["security"])
                   }
                 >
                   {Object.entries(securityLabels).map(([value, label]) => (
@@ -759,6 +830,14 @@ function CreateRoom({
                 Up to three, separated by commas.
               </span>
             </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />{" "}
+              Show in the public directory
+            </label>
             {error && (
               <p className="form-error" role="alert">
                 {error}
@@ -768,12 +847,12 @@ function CreateRoom({
               className="button button-primary"
               disabled={busy || !name.trim()}
             >
-              {busy ? 'Creating…' : 'Create room'}
+              {busy ? "Creating…" : "Create room"}
               <ArrowRight size={16} />
             </button>
           </form>
         )}
       </div>
     </dialog>
-  )
+  );
 }
