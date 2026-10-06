@@ -701,7 +701,10 @@ function AudioDeck({
       Number.isFinite(element.duration) ? element.duration : Infinity,
     );
     const drift = target - element.currentTime;
-    if (force || Math.abs(drift) > 1.5) element.currentTime = target;
+    // A forced sync (first sound, play pressed) still only seeks when we're actually off. Seeking fires `canplay`,
+    // and `canplay` forces a sync, so seeking unconditionally here looped forever: thousands of seeks a second,
+    // which sounds like crackle.
+    if (Math.abs(drift) > (force ? 0.25 : 1.5)) element.currentTime = target;
     element.playbackRate =
       Math.abs(drift) > 0.2 && Math.abs(drift) <= 1.5
         ? 1 + Math.max(-0.03, Math.min(0.03, drift / 10))
