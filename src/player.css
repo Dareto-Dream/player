@@ -1,14 +1,14 @@
 /* DeltaV's brutalist type and palette, with controls scoped to this listening tool. */
 :root {
   color-scheme: dark;
-  --sp-bg: #1c1a1c;
-  --sp-panel: #252226;
-  --sp-raised: #2e2b2f;
-  --sp-line: #4f4b51;
-  --sp-text: #e4dce0;
-  --sp-muted: #b0a9ae;
-  --sp-dim: #8d878c;
-  --sp-teal: var(--primary, #eb6841);
+  --sp-bg: #25322f;
+  --sp-panel: #2d3d3a;
+  --sp-raised: #354744;
+  --sp-line: #53706a;
+  --sp-text: #ffffff;
+  --sp-muted: #c0d0cd;
+  --sp-dim: #95b1ab;
+  --sp-teal: var(--primary, #57baa7);
   --sp-mono: "DM Mono", Consolas, monospace;
   --sp-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
@@ -106,7 +106,7 @@ body {
 .brand-mark {
   height: 39px;
   width: 39px;
-  border: 1px solid #5f565f;
+  border: 1px solid #608079;
   color: var(--sp-teal);
   border-radius:0;
   display: grid;
@@ -159,24 +159,24 @@ body {
 }
 .app .button-quiet:hover {
   background: var(--sp-raised);
-  border-color: #5f565f;
+  border-color: #608079;
 }
 .app .button-light {
   background: var(--sp-text);
   border-color: var(--sp-text);
-  color: #292529;
+  color: #30403d;
 }
 .app .button-light:hover {
-  background: #e5e1e5;
+  background: #ffffff;
 }
 .app .button-primary {
   background: var(--sp-teal);
-  color: #221f22;
+  color: #2a3936;
   border-color: var(--sp-teal);
   font-weight: 600;
 }
 .app .button-primary:hover {
-  background: #e6451a;
+  background: #44a590;
 }
 .app .icon-button {
   padding: 0;
@@ -317,9 +317,9 @@ body {
   right: 0;
   width: 280px;
   padding: 16px;
-  border: 1px solid #5c545c;
+  border: 1px solid #5d7d76;
   border-radius:0;
-  background: #2e2a2e;
+  background: #344643;
   box-shadow: none;
 }
 .panel-heading {
@@ -371,7 +371,7 @@ body {
 }
 .tag-option[aria-pressed='true'] .checkbox-mark {
   border-color: var(--sp-teal);
-  color: #2a262a;
+  color: #31413e;
   background: var(--sp-teal);
 }
 .app .tag-done {
@@ -397,7 +397,7 @@ body {
   color: var(--sp-dim);
 }
 .view-switch button[aria-pressed='true'] {
-  background: #423c42;
+  background: #455d59;
   color: var(--sp-text);
 }
 .directory-filters {
@@ -460,10 +460,10 @@ body {
 .app .active-tags button {
   padding: 4px 8px;
   gap: 7px;
-  border: 1px solid #c13a15;
+  border: 1px solid #398a79;
   border-radius:0;
-  background: #2e2a2e;
-  color: #ee8063;
+  background: #344643;
+  color: #75c6b5;
   font-size: 11px;
 }
 .results-heading {
@@ -504,7 +504,7 @@ body {
   overflow: hidden;
 }
 .room-card:hover {
-  border-color: #685e68;
+  border-color: #688a83;
 }
 .room-cover {
   display: block;
@@ -515,7 +515,7 @@ body {
   overflow: hidden;
   width: 100%;
   height: 100%;
-  background: #3a343a;
+  background: #3e534f;
 }
 .artwork img {
   width: 100%;
@@ -532,14 +532,14 @@ body {
   width: 100%;
   display: grid;
   place-items: center;
-  background: #3c373c;
+  background: #405652;
   overflow: hidden;
 }
 .sleeve-1 .record-sleeve {
-  background: #3f393f;
+  background: #425a55;
 }
 .sleeve-2 .record-sleeve {
-  background: #3f393f;
+  background: #425a55;
 }
 .record-disc {
   display: grid;
@@ -548,7 +548,7 @@ body {
   aspect-ratio: 1;
   border: 1px solid #9c899c25;
   border-radius:0;
-  background: #282428;
+  background: #2f3f3c;
   box-shadow: 0 0 0 13px #a391a30a, inset 0 0 0 7px #9c899c08, inset 0 0 0 15px #9c899c08, inset 0 0 0 25px #9c899c08;
   transform: translate(25%, 7%);
 }
@@ -559,15 +559,15 @@ body {
   aspect-ratio: 1;
   border-radius:0;
   border: 1px solid #baacba32;
-  background: #585058;
-  color: #bbadbb;
+  background: #597871;
+  color: #c8d6d3;
 }
 .sleeve-label {
   position: absolute;
   top: 15px;
   left: 16px;
   font: 10px var(--sp-mono);
-  color: #c4b8c4;
+  color: #d3dedc;
   letter-spacing: 3px;
 }
 .sleeve-lines {
@@ -588,13 +588,13 @@ body {
   gap: 6px;
   padding: 4px 6px;
   border-radius:0;
-  color: #c1b5c1;
+  color: #d0dcd9;
   background: #242024e8;
   font: 8px var(--sp-mono);
   letter-spacing: 0.7px;
 }
 .room-status.on-air {
-  color: #ee8063;
+  color: #75c6b5;
 }
 .room-status.on-air .status-dot {
   background: var(--sp-teal);
@@ -669,10 +669,10 @@ body {
 .app .room-tags button {
   padding: 2px 5px;
   min-height: 22px;
-  border: 1px solid #4b444b;
+  border: 1px solid #4d6862;
   border-radius:0;
   background: transparent;
-  color: #b1a2b1;
+  color: #bccdca;
   font: 9px var(--sp-mono);
   overflow-wrap: anywhere;
 }
@@ -777,17 +777,17 @@ body {
   padding-left: 28px;
 }
 .invite-panel {
-  border: 1px solid #4e464e;
+  border: 1px solid #4f6b65;
   border-top: 2px solid var(--sp-teal);
   border-radius:0;
-  background: #2f2a2f;
+  background: #354643;
   padding: 19px;
 }
 .panel-index {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #ee8063;
+  color: #75c6b5;
   font: 9px var(--sp-mono);
   letter-spacing: 1px;
 }
@@ -811,7 +811,7 @@ body {
   height: 47px;
   padding: 9px;
   text-align: center;
-  background: #262326;
+  background: #2d3e3b;
   font: 20px var(--sp-mono);
   letter-spacing: 6px;
 }
@@ -878,7 +878,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #766b76;
+  color: #769a92;
   margin-top: 35px;
 }
 .sidebar-colophon > span {
@@ -900,11 +900,11 @@ body {
   display: flex;
   align-items: center;
   gap: 17px;
-  border: 1px solid #4b444b;
+  border: 1px solid #4d6862;
   border-radius:0;
   padding: 15px 20px;
   margin-bottom: 24px;
-  color: #978297;
+  color: #98b3ae;
 }
 .empty-dial > span {
   font: 10px var(--sp-mono);
@@ -939,16 +939,16 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 15px;
-  border: 1px solid #665c66;
-  background: #332e33;
-  color: #ee8063;
+  border: 1px solid #668881;
+  background: #384b48;
+  color: #75c6b5;
   padding: 12px 15px;
   margin-block: 12px;
   border-radius:0;
   font-size: 12px;
 }
 .error-notice .text-button {
-  color: #e9bdb1;
+  color: #b6d7d0;
   white-space: nowrap;
 }
 .site-footer {
@@ -979,7 +979,7 @@ body {
   line-height: 1.6;
 }
 .form-error {
-  color: #e5b2a4;
+  color: #aad0c8;
   font-size: 12px;
   margin-top: 8px !important;
 }
@@ -988,7 +988,7 @@ body {
   width: 470px;
   max-height: calc(100dvh - 40px);
   padding: 0;
-  border: 1px solid #615861;
+  border: 1px solid #61827b;
   border-radius:0;
   color: var(--sp-text);
   background: var(--sp-panel);
@@ -1143,7 +1143,7 @@ body {
 }
 .album-art {
   border-radius:0;
-  border: 1px solid #5a525a;
+  border: 1px solid #5b7a74;
   box-shadow: 7px 7px 0 #211e2180;
 }
 .album-art .record-disc {
@@ -1206,13 +1206,13 @@ body {
   height: 46px;
   width: 46px;
   padding: 0;
-  border: 1px solid #ab9bab;
+  border: 1px solid #b5c8c4;
   border-radius:0;
   background: var(--sp-text);
-  color: #2d282d;
+  color: #334441;
 }
 .app .play-button:hover {
-  background: #e5e1e5;
+  background: #ffffff;
 }
 .volume-control {
   display: flex;
@@ -1239,11 +1239,11 @@ body {
   min-width: 0;
   border: 0;
   height: 3px;
-  background: #423c42;
+  background: #455d59;
   border-radius:0;
 }
 .timeline progress::-webkit-progress-bar {
-  background: #423c42;
+  background: #455d59;
 }
 .timeline progress::-webkit-progress-value {
   background: var(--sp-teal);
@@ -1257,7 +1257,7 @@ body {
   flex-direction: column;
   min-width: 0;
   border-left: 1px solid var(--sp-line);
-  background: #252225;
+  background: #2d3c39;
 }
 .queue-title {
   display: flex;
@@ -1285,8 +1285,8 @@ body {
   z-index: 1;
   height: 30px;
   width: 26px;
-  background: #363136;
-  border: 1px solid #564e56;
+  background: #3b4f4b;
+  border: 1px solid #57756f;
 }
 .app .queue-search {
   flex: none;
@@ -1308,7 +1308,7 @@ body {
   align-items: center;
   gap: 12px;
   padding: 16px 18px;
-  border-top: 1px solid #383238;
+  border-top: 1px solid #3c514d;
 }
 .queue-position {
   width: 20px;
@@ -1337,8 +1337,8 @@ body {
   color: var(--sp-dim);
 }
 .current-track {
-  background: #302c30;
-  color: #ee8063;
+  background: #364845;
+  color: #75c6b5;
 }
 .current-track .queue-position {
   color: var(--sp-teal);
@@ -1394,7 +1394,7 @@ body {
   margin-top: 8px;
 }
 .request-success {
-  color: #ee8063;
+  color: #75c6b5;
   font-size: 12px;
   margin-top: 10px !important;
 }

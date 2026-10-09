@@ -763,7 +763,7 @@ function AudioDeck({
         const amplitude = audio.current?.paused
           ? 0
           : levels[Math.floor((index * levels.length) / count)] / 255;
-        context.fillStyle = amplitude > 0.1 ? "#eb6841" : "#46424a";
+        context.fillStyle = amplitude > 0.1 ? "#57baa7" : "#4c6661";
         const bar = Math.max(2, amplitude * (height - 6));
         context.fillRect(
           (index * width) / count,
