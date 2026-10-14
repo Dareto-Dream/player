@@ -183,6 +183,11 @@ app.use(
 app.get("/favicon.svg", (_request, response) =>
   response.sendFile(resolve("dist/favicon.svg")),
 );
+app.get("/local-library.js", (_request, response) =>
+  response
+    .set("Cache-Control", "public, max-age=0, must-revalidate")
+    .sendFile(resolve("dist/local-library.js")),
+);
 app.get("/og-default.png", (_request, response) =>
   response.sendFile(resolve("dist/og-default.png")),
 );

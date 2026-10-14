@@ -9,14 +9,20 @@ assert.equal((html.match(/name="description"/g) || []).length, 1)
 for (const [path, type] of [
   ['/favicon.svg', 'image/svg+xml'],
   ['/og-default.png', 'image/png'],
+  ['/local-library.js', 'application/javascript'],
 ]) {
   const response = await fetch(`${base}${path}`)
   assert.equal(response.status, 200)
   assert.ok(response.headers.get('content-type')?.includes(type))
+  if (path.endsWith('.js')) {
+    const source = await response.text()
+    assert.ok(source.includes('LocalAudioLibrary'))
+    assert.ok(!source.includes('<!doctype html>'))
+  }
 }
 const privateRoom = await fetch(`${base}/sessions/ABC123`)
 assert.equal(privateRoom.headers.get('x-robots-tag'), 'noindex, nofollow')
 assert.ok((await privateRoom.text()).includes('Private Shared Play'))
 console.log(
-  'Homepage metadata, image MIME types and private-session indexing: passed.',
+  'Homepage metadata, static asset MIME types, local library script and private-session indexing: passed.',
 )
