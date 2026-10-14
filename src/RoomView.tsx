@@ -1,19 +1,24 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
+import { RoomLyrics, trackLyrics } from "./RoomLyrics";
 import { LocalLibrary } from "./LocalLibrary";
 import {
-  ArrowLeft,
   ArrowRight,
   AudioLines,
   Check,
   ChevronLeft,
   ChevronRight,
   Copy,
+  Disc3,
+  Maximize2,
+  Minimize2,
+  Settings2,
+  X,
   Headphones,
   List,
   LoaderCircle,
   Pause,
   Play,
-  Radio,
   RotateCcw,
   Search,
   Send,
@@ -32,8 +37,6 @@ import { packageAudio, hostPosition, timeLabel, type RichMedia } from "./audio";
 import {
   Artwork,
   ErrorNotice,
-  Footer,
-  Header,
   savedValue,
   saveValue,
   useAccount,
@@ -68,6 +71,8 @@ export default function RoomView({
     status: string;
     isOwner: boolean;
   } | null>(null);
+  const settings = useRef<HTMLDialogElement>(null);
+  const [transport, setTransport] = useState<HTMLDivElement | null>(null);
   const [rich, setRich] = useState<RichMedia>({});
   useEffect(
     () => () => {
@@ -221,7 +226,7 @@ export default function RoomView({
     }
   };
   const name =
-    room?.name ||
+    room?.name || session?.roomName ||
     (privateSession
       ? "Shared Play"
       : loading
@@ -260,130 +265,44 @@ export default function RoomView({
   )
     return <StreamerRoom id={room.streamerQueueId} profileRoom={room} />;
 
+  const cover = rich.cover || session?.albumArtUrl || session?.track?.artworkUrl || room?.nowPlaying?.artwork || room?.bannerUrl;
+  const displayTitle = session ? title || "Shared audio" : loading ? "Tuning in…" : "Waiting for the host";
+  const displayArtist = session ? artist || "Shared from Spectralis" : protectedMessage || "This room will update when the host starts listening.";
+
   return (
-    <div className="app">
-      <Header account={account} />
-      <main className="shell listening-page">
-        <div className="room-breadcrumb">
-          <a href="/">
-            <ArrowLeft size={15} /> Leave room
-          </a>
-          {access?.isOwner && <a href={`/rooms/${id}/settings`}>Manage room</a>}
-          {code && <a className="button button-quiet" href={`spectralis://shared-play/join?${new URLSearchParams({ session: code, cdn: base })}`}>Open in Spectralis</a>}
-          <button className="button button-quiet" onClick={share}>
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-            {copied ? "Copied" : "Copy invite"}
+    <div className="app shared-room">
+      <header className="shared-header">
+        <a className="shared-brand" href="/" aria-label="Spectralis Player home"><Disc3 size={30} /><span>spectralis</span></a>
+        <div className="shared-heading">
+          <h1>{name}</h1>
+          <div className="shared-meta"><i className={session ? "status-dot live" : "status-dot"} />
+            <span>{loading ? "Connecting" : session ? "Listening together" : "Off air"}</span>
+            {privateSession ? <span>{id}</span> : room?.host && <span>with {room.host}</span>}
+          </div>
+        </div>
+        <div className="shared-actions">
+          {code && <a className="button button-quiet shared-open-app" href={`spectralis://shared-play/join?${new URLSearchParams({ session: code, cdn: base })}`}>Open in Spectralis</a>}
+          <button className="icon-button" aria-label="Room settings" onClick={() => settings.current?.showModal()}><Settings2 size={19} /></button>
+          <button className="button shared-invite" onClick={share} aria-label={copied ? "Copied" : "Invite friends"}>
+            {copied ? <Check size={16} /> : <Copy size={16} />}<span>{copied ? "Copied" : "Invite friends"}</span>
           </button>
         </div>
-        <div className="room-page-heading">
-          <div>
-            <div className="section-label">
-              <Radio size={13} />
-              {privateSession
-                ? "PRIVATE SHARED PLAY"
-                : room?.kind === "streamer_queue"
-                  ? "STREAMER QUEUE"
-                  : "CHANNEL"}
-            </div>
-            <h1>{name}</h1>
-            {room?.description && <p>{room.description}</p>}
-          </div>
-          <span className="room-audience">
-            <Headphones size={15} />
-            {listeners ?? room?.listeners ?? 0}
-            <span>listening</span>
-          </span>
-        </div>
-        {copyError && (
-          <p role="status" className="field-help">
-            {copyError}
-          </p>
-        )}
-        {error && (
-          <ErrorNotice
-            message={error}
-            retry={() => setRefresh((value) => value + 1)}
-          />
-        )}
-        <div
-          className={`listening-layout ${collapsed ? "queue-collapsed" : ""}`}
-        >
-          <section className="listening-stage" aria-label="Player">
-            <div className="stage-label">
-              <span>
-                <i className={session ? "status-dot live" : "status-dot"} />
-                {loading ? "CONNECTING" : session ? "CONNECTED" : "OFF AIR"}
-              </span>
-              <span>
-                {privateSession
-                  ? id
-                  : room?.host
-                    ? `HOSTED BY ${room.host}`
-                    : ""}
-              </span>
-            </div>
-            <div className="listening-art">
-              <Artwork
-                name={name}
-                src={
-                  rich.cover ||
-                  session?.albumArtUrl ||
-                  session?.track?.artworkUrl ||
-                  room?.nowPlaying?.artwork ||
-                  room?.bannerUrl
-                }
-                className="album-art"
-              />
-            </div>
-            <div className="now-playing-copy">
-              <div className="section-label">
-                {session ? "NOW PLAYING" : "BETWEEN SESSIONS"}
-              </div>
-              <h2>
-                {session
-                  ? title || "Shared audio"
-                  : loading
-                    ? "Tuning in…"
-                    : "Waiting for the host"}
-              </h2>
-              <p>
-                {session
-                  ? artist || "Shared from Spectralis"
-                  : protectedMessage ||
-                    "This room will update when the host starts listening."}
-              </p>
-              {room?.security !== "anyone" && !privateSession && !subject && (
-                <button
-                  className="button button-primary"
-                  onClick={() => ward.signIn()}
-                >
-                  Sign in with Ward
-                  <ArrowRight size={15} />
-                </button>
-              )}
-              {subject &&
-                room?.security === "approval" &&
-                access?.status === "none" && (
-                  <button
-                    className="button button-primary"
-                    onClick={() =>
-                      void api
-                        .requestAccess(id)
-                        .then(() => setRefresh((v) => v + 1))
-                        .catch((e) => setError(e.message))
-                    }
-                  >
-                    Ask to join
-                  </button>
-                )}
-            </div>
-            {subject && session?.track?.album && (
-              <p className="field-help">{session.track.album}</p>
-            )}
-            <AudioDeck session={session} onMetadata={setRich} />
-            {subject && <Lyrics lrc={rich.lyrics} session={session} />}
+      </header>
+      <main className="shared-main">
+        {copyError && <p role="status" className="field-help">{copyError}</p>}
+        {error && <ErrorNotice message={error} retry={() => setRefresh(value => value + 1)} />}
+        <div className={`shared-studio ${collapsed ? "shared-queue-collapsed" : ""}`}>
+          <section className="shared-cover" aria-label="Album artwork">
+            <Artwork name={title || name} src={cover} className="shared-cover-art" />
+            {session?.track?.album && <p className="shared-cover-caption">{session.track.album}</p>}
           </section>
-          <aside className="listening-queue">
+          <section className="shared-broadcast" aria-label="Now playing">
+            <h2>{displayTitle}</h2><p className="shared-artist">{displayArtist}</p>
+            {room?.security !== "anyone" && !privateSession && !subject && <button className="button button-primary" onClick={() => ward.signIn()}>Sign in with Ward <ArrowRight size={15} /></button>}
+            {subject && room?.security === "approval" && access?.status === "none" && <button className="button button-primary" onClick={() => void api.requestAccess(id).then(() => setRefresh(v => v + 1)).catch(e => setError(e.message))}>Ask to join</button>}
+            <AudioDeck session={session} onMetadata={setRich} lrc={rich.lyrics} transport={transport} />
+          </section>
+          <aside className="shared-queue">
             <button
               className="queue-collapse icon-button"
               onClick={() => setCollapsed((value) => !value)}
@@ -406,10 +325,10 @@ export default function RoomView({
                 <div className="queue-title">
                   <div>
                     <List size={18} />
-                    <h2>Queue</h2>
+                    <h2>The next good thing</h2>
                     <span className="count">{items.length}</span>
                   </div>
-                  <span className="field-help">From the host</span>
+
                 </div>
                 <label className="search-field queue-search">
                   <Search size={15} />
@@ -443,6 +362,7 @@ export default function RoomView({
                           String(items.indexOf(item) + 1).padStart(2, "0")
                         )}
                       </span>
+                      <Artwork name={item.title || "Shared track"} src={item.artworkUrl} className="shared-queue-art" />
                       <div>
                         <strong>
                           {item.title || item.url || "Shared track"}
@@ -476,9 +396,7 @@ export default function RoomView({
                 )}
                 {!!requestItems.length && (
                   <div className="pending-requests">
-                    <div className="section-label">
-                      AWAITING APPROVAL / PAYMENT
-                    </div>
+                    <p className="field-help">Awaiting approval or payment</p>
                     {requestItems.map((item) => (
                       <p key={item.id}>
                         {item.title || item.url}
@@ -522,8 +440,24 @@ export default function RoomView({
             )}
           </aside>
         </div>
+        <section className="shared-company" aria-label="In the room">
+          <div><Headphones size={18} /><strong>{listeners ?? room?.listeners ?? 0} tuned in</strong></div>
+          {room?.description && <p>{room.description}</p>}
+        </section>
       </main>
-      <Footer />
+      <footer className="shared-player-bar">
+        <div className="shared-player-track"><Artwork name={title || name} src={cover} /><div><strong>{displayTitle}</strong><span>{artist || "Shared from Spectralis"}</span></div></div>
+        <div className="shared-player-controls" ref={setTransport} />
+      </footer>
+      <dialog ref={settings} className="shared-settings" aria-labelledby="room-settings-title">
+        <div className="shared-settings-heading"><h2 id="room-settings-title">Room settings</h2><button className="icon-button" aria-label="Close settings" onClick={() => settings.current?.close()}><X size={20} /></button></div>
+        <p>{privateSession ? "This room is shared by invite." : room?.description || "Listen together in Spectralis."}</p>
+        {ward.enabled && (account.profile ? <div className="shared-account"><p>Signed in as {account.profile.name || account.profile.preferred_username || "Listener"}</p><button className="button" onClick={account.signOut}>Sign out</button></div> : <button className="button button-primary" onClick={() => ward.signIn()}>Sign in for your library <ArrowRight size={16} /></button>)}
+        {access?.isOwner && <a className="button" href={`/rooms/${id}/settings`}>Manage room <ArrowRight size={16} /></a>}
+        {code && <a className="button" href={`spectralis://shared-play/join?${new URLSearchParams({ session: code, cdn: base })}`}>Open in Spectralis <ArrowRight size={16} /></a>}
+        {code && <p className="field-help">Room code: {code}. Playback follows the host. Volume and pausing affect only your browser.</p>}
+        <a className="button button-quiet" href="/">Leave room <ArrowRight size={16} /></a>
+      </dialog>
     </div>
   );
 }
@@ -642,9 +576,13 @@ function RequestForm({
 function AudioDeck({
   session,
   onMetadata,
+  lrc,
+  transport,
 }: {
   session: Session | null;
   onMetadata: (metadata: RichMedia) => void;
+  lrc?: string;
+  transport: HTMLDivElement | null;
 }) {
   const audio = useRef<HTMLAudioElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -664,6 +602,28 @@ function AudioDeck({
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [retry, setRetry] = useState(0);
+  const visualizer = useRef<HTMLDivElement>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [view, setView] = useState<'visualizer' | 'lyrics'>('visualizer');
+  const lyricData = JSON.stringify(session?.track?.lyrics || session?.track?.lyricLines || []);
+  const lines = useMemo(() => trackLyrics(lrc, JSON.parse(lyricData)), [lrc, lyricData]);
+  const showLyrics = view === 'lyrics' && lines.length > 0;
+  useEffect(() => {
+    const changed = () => setFullscreen(document.fullscreenElement === visualizer.current);
+    document.addEventListener('fullscreenchange', changed);
+    return () => document.removeEventListener('fullscreenchange', changed);
+  }, []);
+  useEffect(() => {
+    if (!showLyrics) return;
+    const timer = setInterval(() => setPosition(audio.current?.currentTime || 0), 80);
+    return () => clearInterval(timer);
+  }, [showLyrics]);
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement === visualizer.current) await document.exitFullscreen();
+      else await visualizer.current?.requestFullscreen();
+    } catch { setError('Fullscreen is unavailable in this browser.'); }
+  };
 
   useEffect(() => {
     const element = audio.current!;
@@ -787,7 +747,7 @@ function AudioDeck({
         const amplitude = audio.current?.paused
           ? 0
           : levels[Math.floor((index * levels.length) / count)] / 255;
-        context.fillStyle = amplitude > 0.1 ? "#57baa7" : "#4c6661";
+        context.fillStyle = amplitude > 0.1 ? "#d4ef75" : "#46513a";
         const bar = Math.max(2, amplitude * (height - 6));
         context.fillRect(
           (index * width) / count,
@@ -833,7 +793,7 @@ function AudioDeck({
   };
 
   return (
-    <div className="audio-deck">
+    <div className="shared-audio-deck">
       <audio
         ref={audio}
         crossOrigin="anonymous"
@@ -859,23 +819,25 @@ function AudioDeck({
           }
         }}
       />
-      <canvas
-        className="audio-spectrum"
-        ref={canvas}
-        aria-label="Live audio frequency spectrum"
-        role="img"
-      />
-      <div className="audio-controls">
-        <div className="audio-status">
-          <span className={playing ? "status-dot live" : "status-dot"} />
-          {loading
-            ? "LOADING AUDIO"
-            : enabled
-              ? playing
-                ? "LISTENING LIVE"
-                : "HOST PAUSED"
-              : "LISTEN TOGETHER"}
+      <div className="shared-media-tabs" role="tablist" aria-label="Track view" onKeyDown={event => {
+        if (!lines.length || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 'visualizer' : event.key === 'End' ? 'lyrics' : showLyrics ? 'visualizer' : 'lyrics';
+        setView(next); document.getElementById(`room-${next}-tab`)?.focus();
+      }}>
+        <button role="tab" id="room-visualizer-tab" aria-selected={!showLyrics} aria-controls="room-visualizer-panel" tabIndex={showLyrics ? -1 : 0} onClick={() => setView('visualizer')}>Visualizer</button>
+        {lines.length > 0 && <button role="tab" id="room-lyrics-tab" aria-selected={showLyrics} aria-controls="room-lyrics-panel" tabIndex={showLyrics ? 0 : -1} onClick={() => setView('lyrics')}>Lyrics</button>}
+      </div>
+      <div className="shared-media-frame">
+        <div ref={visualizer} className="shared-visualizer" id="room-visualizer-panel" role="tabpanel" aria-labelledby="room-visualizer-tab" hidden={showLyrics}>
+          <canvas className="audio-spectrum" ref={canvas} aria-label="Live audio frequency spectrum" role="img" />
+          <button className="icon-button shared-fullscreen" onClick={() => void toggleFullscreen()} aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen visualizer'}>{fullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}</button>
         </div>
+        {lines.length > 0 && <RoomLyrics lines={lines} position={position} active={showLyrics} />}
+      </div>
+      <p className="shared-playback-status">{loading ? "Loading audio…" : enabled ? playing ? "Listening live" : "Host paused" : "Press play to listen together"}</p>
+      {transport && createPortal(<>
+      <div className="audio-controls">
         <div className="transport">
           <button
             className="icon-button"
@@ -929,6 +891,7 @@ function AudioDeck({
         />
         <span>{timeLabel(duration)}</span>
       </div>
+      </>, transport)}
       {error && (
         <ErrorNotice
           message={error}
@@ -937,28 +900,4 @@ function AudioDeck({
       )}
     </div>
   );
-}
-
-function Lyrics({ lrc, session }: { lrc?: string; session: Session | null }) {
-  const [position, setPosition] = useState(0);
-  useEffect(() => {
-    const tick = () =>
-      setPosition(session?.playback ? hostPosition(session.playback) : 0);
-    tick();
-    const timer = setInterval(tick, 250);
-    return () => clearInterval(timer);
-  }, [session?.playback]);
-  const lines = (lrc || "")
-    .split("\n")
-    .flatMap((line) => {
-      const text = line.replace(/\[[^\]]+\]/g, "").trim();
-      return [...line.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)].map((match) => ({
-        time: Number(match[1]) * 60 + Number(match[2]),
-        text,
-      }));
-    })
-    .sort((a, b) => a.time - b.time);
-  const timed=lines.length?lines:(session?.track?.lyrics||[]).map(line=>({time:line.timeSeconds||0,text:line.text}))
-  const current = timed.filter((line) => line.time <= position).at(-1);
-  return current ? <p className="host-lyrics">{current.text}</p> : null;
 }

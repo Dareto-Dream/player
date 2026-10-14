@@ -269,6 +269,7 @@ export type Playback = {
   hostClockUtc?: string;
 };
 export type Session = {
+  roomName?: string;
   accountUploadsAvailable?: boolean;
   capabilities?: { audioUploads?: boolean; queueAdd?: string };
   roomCode: string;
@@ -284,6 +285,7 @@ export type Session = {
     album?: string;
     durationSeconds?: number;
     artworkUrl?: string;
-    lyrics?: { timeSeconds?: number; startSeconds?: number; text: string }[];
+    lyrics?: { timeSeconds?: number; startSeconds?: number; text: string; words?: { timeSeconds?: number; startTime?: number; text: string }[] }[];
+    lyricLines?: { timeSeconds?: number; startSeconds?: number; text: string; words?: { timeSeconds?: number; startTime?: number; text: string }[] }[];
   };
 };

@@ -192,7 +192,7 @@ function silentWav() {
   return buffer
 }
 
-async function sessionRoutes(page: Page) {
+async function sessionRoutes(page: Page, options: { lyrics?: unknown; lrc?: string } = {}) {
   const tracks = [
     {
       id: 'one',
@@ -223,7 +223,7 @@ async function sessionRoutes(page: Page) {
     if (path.endsWith('/package'))
       return route.fulfill({
         contentType: 'application/zip',
-        body: Buffer.from(zipSync({ 'audio/track.wav': silentWav() })),
+        body: Buffer.from(zipSync({ 'audio/track.wav': silentWav(), ...(options.lrc ? { 'audio/track.lrc': Buffer.from(options.lrc) } : {}) })),
       })
     if (path.endsWith('/queue/items')) {
       const item = route.request().postDataJSON().item
@@ -246,7 +246,7 @@ async function sessionRoutes(page: Page) {
         roomCode: code,
         trackId: 'one',
         packageUrl: `${base}/shared-play/v2/sessions/${code}/package`,
-        track: tracks[0],
+        track: { ...tracks[0], lyrics: options.lyrics },
         playback: {
           isPlaying: !paused,
           positionSeconds: position,
@@ -523,4 +523,70 @@ test('server request failures are not reported as successful submissions', async
   await expect(
     page.getByRole('textbox', { name: 'Track link' }),
   ).toHaveValue('https://example.com/song')
+})
+
+test('the approved room layout has one header and fullscreen contains only the visualizer', async ({ page }) => {
+  await sessionRoutes(page)
+  await page.goto('/sessions/ABC123')
+  await expect(page.locator('.shared-header')).toBeVisible()
+  await expect(page.locator('.site-header')).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Lyrics', exact: true })).toHaveCount(0)
+  await expect(page.locator('.room-lyric-timing')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Fullscreen visualizer', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.id)).toBe('room-visualizer-panel')
+  expect(await page.locator('.shared-visualizer').evaluate(el => el.clientHeight >= innerHeight - 1)).toBe(true)
+  expect(await page.evaluate(() => document.fullscreenElement?.contains(document.querySelector('.shared-player-bar')))).toBe(false)
+  await page.getByRole('button', { name: 'Exit fullscreen', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true)
+  for (const width of [1440, 1024, 768, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    const header = page.locator('.shared-header')
+    await expect(header.getByRole('heading', { name: 'Shared Play' })).toBeVisible()
+    await expect(header.getByRole('button', { name: 'Invite friends' })).toBeVisible()
+  }
+  await page.getByRole('button', { name: 'Room settings', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Room settings' }).getByRole('link', { name: 'Open in Spectralis' })).toBeVisible()
+})
+
+for (const source of ['manifest', 'package'] as const) for (const timing of ['line', 'word'] as const) {
+  test(`${source} lyrics lock to ${timing} timing without allowing seek`, async ({ page }) => {
+    const text = 'Here with you'
+    const options = source === 'manifest' ? { lyrics: [
+      { timeSeconds: 0, text, ...(timing === 'word' ? { words: [{ timeSeconds: 0, text: 'Here ' }, { timeSeconds: 2, text: 'with ' }, { timeSeconds: 3, text: 'you' }] } : {}) },
+      { timeSeconds: 20, text: 'A later line' },
+    ] } : { lrc: timing === 'word' ? '[00:00.00]<00:00.00>Here <00:02.00>with <00:03.00>you\n[00:20.00]A later line' : '[00:00.00]Here with you\n[00:20.00]A later line' }
+    const host = await sessionRoutes(page, options)
+    host.pauseHost()
+    await page.goto('/sessions/ABC123')
+    await expect(page.getByRole('button', { name: 'Start listening' })).toBeEnabled()
+    await page.getByRole('tab', { name: 'Lyrics', exact: true }).click()
+    await expect(page.locator('.room-lyric-timing')).toHaveText(timing === 'word' ? 'Word timed' : 'Line timed')
+    await expect(page.locator('.room-lyric-line[aria-current=true]')).toHaveText(text)
+    await expect(page.getByRole('button', { name: /^(Line|Word) timed$/ })).toHaveCount(0)
+    const before = await page.locator('audio').evaluate((el: HTMLAudioElement) => el.currentTime)
+    await page.getByText('A later line', { exact: true }).click()
+    const after = await page.locator('audio').evaluate((el: HTMLAudioElement) => el.currentTime)
+    expect(Math.abs(after - before)).toBeLessThan(.1)
+    if (timing === 'word') await expect(page.locator('.room-lyric-line[aria-current=true] .word-sung')).toHaveCount(3)
+    await page.screenshot({ path: `test-results/room-${source}-${timing}-lyrics.png`, fullPage: true })
+    if (source === 'manifest') {
+      options.lyrics = []
+      await expect(page.getByRole('tab', { name: 'Lyrics', exact: true })).toHaveCount(0, { timeout: 10000 })
+      await expect(page.getByRole('tab', { name: 'Visualizer', exact: true })).toHaveAttribute('aria-selected', 'true')
+      await expect(page.locator('.room-lyric-timing')).toHaveCount(0)
+    }
+  })
+}
+
+test('approval rooms do not fetch audio before admission in the redesigned room', async ({ page }) => {
+  await page.route('**/player/v1/rooms/private', route => route.fulfill({ json: { ...rooms[0], id: 'private', security: 'approval' } }))
+  await page.route('**/player/v1/rooms/private/access', route => route.fulfill({ json: { status: 'pending', isOwner: false } }))
+  let protectedFetches = 0
+  await page.route('**/shared-play/**', route => { protectedFetches++; return route.abort() })
+  await page.goto('/rooms/private')
+  await expect(page.getByText(/You’re in the waiting room/)).toBeVisible()
+  expect(protectedFetches).toBe(0)
+  await expect(page.getByRole('button', { name: 'Start listening' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Put something on' })).toHaveCount(0)
 })
