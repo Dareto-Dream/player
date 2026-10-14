@@ -1,0 +1,25 @@
+.local-library-open { width: 100%; margin-top: 16px; }
+.local-library-dialog { width: min(760px, calc(100vw - 32px)); max-height: 85dvh; padding: 28px; background: var(--sp-panel); color: var(--sp-text); border: 1px solid var(--sp-line); }
+.app .local-library-dialog > p { margin: 16px 0; }
+.local-library-dialog::backdrop { background: #050905bb; backdrop-filter: blur(6px); }
+.local-library-heading, .local-library-tools { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.local-library-heading h2 { font-size:28px; margin:0; }
+.local-library-tools { margin:24px 0; }
+.local-library-tracks { list-style:none; padding:0; margin:0; max-height:34dvh; overflow:auto; }
+.local-library-tracks li { padding:18px 0; border-top:1px solid var(--sp-line); display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.local-library-tracks strong, .local-library-tracks span { display:block; overflow-wrap:anywhere; }
+.local-library-tracks strong { font-weight:500; margin-bottom:6px; }
+.local-library-actions { display:flex; gap:8px; flex-shrink:0; }
+.local-library-tracks li > div:first-child { min-width:0; }
+@media(max-width:640px) { .local-library-tracks li, .local-library-tools { flex-direction:column; align-items:flex-start; } }
+
+.local-library-link-form { margin: 24px 0 12px; }
+.local-library-link-form label { display:block; margin-bottom:10px; }
+.local-library-link-input, .local-library-save { display:flex; gap:12px; }
+.local-library-link-input input, .local-library-save input { min-width:0; flex:1; }
+.local-library-save { margin:12px 0 28px; }
+.local-library-tabs { display:flex; gap:24px; border-bottom:1px solid var(--sp-line); }
+.local-library-tabs button { background:none; padding:14px 0; color:var(--sp-muted); border:0; border-radius:0; border-bottom:2px solid transparent; cursor:pointer; font:inherit; }
+.local-library-tabs button[aria-pressed=true] { color:var(--sp-text); border-bottom-color:var(--sp-text); }
+.local-library-actions { flex-wrap:wrap; }
+@media(max-width:540px) { .local-library-link-input, .local-library-save { flex-direction:column; } .local-library-heading h2 { font-size:22px; } }

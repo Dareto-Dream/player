@@ -161,13 +161,13 @@ export const api = {
         body: JSON.stringify({ clientId, displayName }),
       },
     ),
-  addQueueLink: (code: string, url: string) =>
+  addQueueLink: (code: string, url: string, title = url) =>
     request(
       `/shared-play/v2/sessions/${encodeURIComponent(code)}/queue/items`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item: { url, title: url, sourceKind: "url" } }),
+        body: JSON.stringify({ item: { url, title, sourceKind: "url" } }),
       },
     ),
   sharedQueue: (code: string) =>
@@ -269,6 +269,8 @@ export type Playback = {
   hostClockUtc?: string;
 };
 export type Session = {
+  accountUploadsAvailable?: boolean;
+  capabilities?: { audioUploads?: boolean; queueAdd?: string };
   roomCode: string;
   trackId?: string;
   packageUrl?: string;

@@ -241,6 +241,8 @@ async function sessionRoutes(page: Page) {
     if (path.endsWith('/presence')) return json({ listenerCount: 18 })
     return json({
       session: {
+        accountUploadsAvailable: true,
+        capabilities: { audioUploads: true },
         roomCode: code,
         trackId: 'one',
         packageUrl: `${base}/shared-play/v2/sessions/${code}/package`,
@@ -263,6 +265,127 @@ async function sessionRoutes(page: Page) {
     },
   }
 }
+
+test('local room files stay in the browser until an account queues them', async ({ page }) => {
+  await sessionRoutes(page)
+  const uploads: { authorization: string | undefined; body: Buffer | null }[] = []
+  await page.route('**/shared-play/v2/sessions/ABC123/uploads', route => {
+    uploads.push({ authorization: route.request().headers().authorization, body: route.request().postDataBuffer() })
+    return route.fulfill({ json: { item: { id: 'uploaded' } } })
+  })
+  await page.route('**/oauth/userinfo', route => route.fulfill({ json: { sub: 'local-test', name: 'Test listener' } }))
+  await page.goto('/sessions/ABC123')
+  await expect(page.getByRole('link', { name: 'Open in Spectralis' })).toHaveAttribute('href', /spectralis:\/\/shared-play\/join\?session=ABC123&cdn=/)
+  await page.getByRole('button', { name: 'Put something on' }).click()
+  const library = page.getByRole('dialog', { name: 'Put something on' })
+  await expect(library.locator('input[type=file]')).toHaveCount(0)
+  await expect(library.getByRole('button', { name: 'Your library', exact: true })).toHaveCount(0)
+  await expect(library.getByRole('button', { name: 'Save link to library' })).toHaveCount(0)
+  expect(uploads).toHaveLength(0)
+  await page.evaluate(() => sessionStorage.setItem('spectralis.ward.access-token', 'isolated-browser-token'))
+  await page.reload()
+  await page.getByRole('button', { name: 'Put something on' }).click()
+  await expect(library.getByText('Signed in as Test listener')).toBeVisible()
+  await library.locator('input[type=file]').setInputFiles({ name: 'A song.wav', mimeType: 'audio/wav', buffer: silentWav() })
+  await expect(library.getByText('A song', { exact: true })).toBeVisible()
+  expect(uploads).toHaveLength(0)
+  await library.locator('li').getByRole('button', { name: 'Add to queue', exact: true }).click()
+  await expect(library.getByRole('status')).toContainText('was added to the queue')
+  expect(uploads).toHaveLength(1)
+  expect(uploads[0].authorization).toBe('Bearer isolated-browser-token')
+  expect(uploads[0].body?.includes(Buffer.from('filename="A song.wav"'))).toBe(true)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path:'test-results/local-library-mobile.png' })
+  expect(await library.evaluate(el => el.scrollWidth <= el.clientWidth+1)).toBe(true)
+  await library.getByRole('button', { name: 'Remove', exact: true }).click()
+  await expect(library.getByText('A song', { exact: true })).toHaveCount(0)
+})
+
+test('saved links and recent picks are local, account-scoped and only record accepted requests', async ({ page }) => {
+  await sessionRoutes(page)
+  let subject = 'listener-one'
+  let reject = false
+  let queued = 0
+  await page.route('**/oauth/userinfo', route => route.fulfill({ json: { sub: subject, name: subject } }))
+  await page.route('**/queue/items', route => {
+    queued++
+    return route.fulfill(reject ? { status:403,json:{error:'Requests are closed.'} } : { json:{items:[]} })
+  })
+  await page.addInitScript(() => sessionStorage.setItem('spectralis.ward.access-token', 'isolated-token'))
+  await page.goto('/sessions/ABC123')
+  await page.getByRole('button', {name:'Put something on'}).click()
+  const picker = page.getByRole('dialog', {name:'Put something on'})
+  await picker.getByRole('textbox', {name:'Track link',exact:true}).fill('https://example.com/song.mp3')
+  await picker.getByRole('textbox', {name:'Link title (optional)'}).fill('Late night')
+  await picker.getByRole('button', {name:'Save link to library'}).click()
+  await expect(picker.locator('li strong')).toHaveText('Late night')
+  expect(queued).toBe(0)
+  await page.reload()
+  await page.getByRole('button', {name:'Put something on'}).click()
+  await expect(picker.locator('li strong')).toHaveText('Late night')
+  await picker.locator('li').getByRole('button', {name:'Add to queue',exact:true}).click()
+  await expect(picker.getByRole('status')).toContainText('was added to the queue')
+  await picker.getByRole('button', {name:'Recently put on',exact:true}).click()
+  await expect(picker.locator('li strong')).toHaveText('Late night')
+  reject = true
+  await picker.getByRole('textbox', {name:'Track link',exact:true}).fill('https://example.com/rejected.mp3')
+  await picker.locator('form').getByRole('button', {name:'Add to queue',exact:true}).click()
+  await expect(picker.getByRole('status')).toContainText('Requests are closed.')
+  await expect(picker.locator('li strong')).toHaveText('Late night')
+  reject = false
+  await picker.getByRole('textbox', {name:'Track link',exact:true}).fill('https://example.com/another.mp3')
+  await picker.locator('form').getByRole('button', {name:'Add to queue',exact:true}).click()
+  await expect(picker.locator('li strong')).toHaveCount(2)
+  await picker.getByRole('button', {name:'Save link',exact:true}).click()
+  await picker.getByRole('button', {name:'Your library',exact:true}).click()
+  await expect(picker.locator('li strong')).toHaveCount(2)
+  await page.setViewportSize({width:390,height:844})
+  await page.screenshot({path:'test-results/music-picker-mobile.png'})
+  expect(await picker.evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true)
+  subject = 'listener-two'
+  await page.reload()
+  await page.getByRole('button', {name:'Put something on'}).click()
+  await expect(picker.getByText('Signed in as listener-two')).toBeVisible()
+  await expect(picker.locator('li strong')).toHaveCount(0)
+  await picker.getByRole('button', {name:'Recently put on',exact:true}).click()
+  await expect(picker.locator('li strong')).toHaveCount(0)
+  subject = 'listener-one'
+  await page.reload()
+  await page.getByRole('button', {name:'Put something on'}).click()
+  await expect(picker.locator('li strong')).toHaveCount(2)
+  await picker.getByRole('button', {name:'Recently put on',exact:true}).click()
+  await picker.getByRole('button', {name:'Clear recent',exact:true}).click()
+  await expect(picker.locator('li strong')).toHaveCount(0)
+  await picker.getByRole('button', {name:'Your library',exact:true}).click()
+  await expect(picker.locator('li strong')).toHaveCount(2)
+})
+
+test('saved links keep the host approval and payment request flow', async ({ page }) => {
+  await sessionRoutes(page)
+  await page.route('**/oauth/userinfo', route=>route.fulfill({json:{sub:'listener',name:'Listener'}}))
+  await page.addInitScript(()=>sessionStorage.setItem('spectralis.ward.access-token','isolated-token'))
+  await page.route('**/streamer-queue', route=>route.fulfill({json:{enabled:true,acceptingSubmissions:true,settings:{queueEntryFee:{enabled:true,amount:2}},submissions:[]}}))
+  let submitted = ''
+  let direct = 0
+  await page.route('**/queue/items', route=>{direct++;return route.fulfill({json:{}})})
+  await page.route('**/streamer-queue/submit', route=>{
+    submitted=route.request().postDataJSON().url
+    return route.fulfill({json:{status:'awaiting_payment',clientSecret:'test-checkout'}})
+  })
+  await page.goto('/sessions/ABC123')
+  await page.getByRole('button',{name:'Put something on'}).click()
+  const picker = page.getByRole('dialog',{name:'Put something on'})
+  await picker.getByRole('textbox',{name:'Link to save',exact:true}).fill('https://example.com/party')
+  await picker.getByRole('button',{name:'Save link to library'}).click()
+  await picker.locator('li').getByRole('button',{name:'Request track',exact:true}).click()
+  await expect(picker.getByRole('textbox',{name:'Request a track'})).toHaveValue('https://example.com/party')
+  expect(submitted).toBe('')
+  await picker.getByRole('button',{name:'Send request'}).click()
+  await expect(picker.getByText('Payment is required before this request can join the queue.')).toBeVisible()
+  await expect(picker.getByRole('heading',{name:'Secure checkout'})).toBeVisible()
+  expect(submitted).toBe('https://example.com/party')
+  expect(direct).toBe(0)
+})
 
 test('private invite stays in React, plays the real package, pauses and submits a request', async ({
   page,
@@ -303,14 +426,16 @@ test('private invite stays in React, plays the real package, pauses and submits 
   await page.getByRole('textbox', { name: 'Search queue' }).fill('ENO')
   await expect(page.locator('.queue-tracks li')).toHaveCount(1)
   await page.getByRole('textbox', { name: 'Search queue' }).fill('')
+  await page.getByRole('button', { name: 'Put something on' }).click()
   await page
-    .getByRole('textbox', { name: 'Request a track' })
+    .getByRole('textbox', { name: 'Track link' })
     .fill('https://example.com/real-request')
-  await page.getByRole('button', { name: 'Send request' }).click()
+  await page.getByRole('button', { name: 'Add to queue', exact: true }).click()
   await expect(page.getByRole('status')).toContainText(
-    'Your request is in the queue.',
+    'was added to the queue.',
   )
   await expect(page.locator('.queue-tracks li')).toHaveCount(4)
+  await page.getByRole('button', { name: 'Close music picker' }).click()
   await page.getByRole('button', { name: 'Start listening' }).click()
   session.pauseHost()
   await expect
@@ -387,14 +512,15 @@ test('server request failures are not reported as successful submissions', async
     }),
   )
   await page.goto('/sessions/ABC123')
+  await page.getByRole('button', { name: 'Put something on' }).click()
   await page
-    .getByRole('textbox', { name: 'Request a track' })
+    .getByRole('textbox', { name: 'Track link' })
     .fill('https://example.com/song')
-  await page.getByRole('button', { name: 'Send request' }).click()
+  await page.getByRole('button', { name: 'Add to queue', exact: true }).click()
   await expect(page.getByRole('status')).toContainText(
     'The host has closed requests.',
   )
   await expect(
-    page.getByRole('textbox', { name: 'Request a track' }),
+    page.getByRole('textbox', { name: 'Track link' }),
   ).toHaveValue('https://example.com/song')
 })

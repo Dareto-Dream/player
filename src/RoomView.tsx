@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { LocalLibrary } from "./LocalLibrary";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import {
   api,
+  base,
   type QueueItem,
   type Room,
   type Session,
@@ -267,6 +269,7 @@ export default function RoomView({
             <ArrowLeft size={15} /> Leave room
           </a>
           {access?.isOwner && <a href={`/rooms/${id}/settings`}>Manage room</a>}
+          {code && <a className="button button-quiet" href={`spectralis://shared-play/join?${new URLSearchParams({ session: code, cdn: base })}`}>Open in Spectralis</a>}
           <button className="button button-quiet" onClick={share}>
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? "Copied" : "Copy invite"}
@@ -488,18 +491,33 @@ export default function RoomView({
                     ))}
                   </div>
                 )}
-                {code && (
+                {session ? (
+                  <LocalLibrary
+                    session={session}
+                    profile={account.profile}
+                    onQueued={() => setRefresh(value => value + 1)}
+                    renderRequests={queue?.enabled ? (accepted, suggested) => (
+                      <RequestForm
+                        code={session.roomCode}
+                        queue={queue}
+                        isStreamer={room?.kind === "streamer_queue"}
+                        displayName={account.profile?.name || account.profile?.preferred_username}
+                        onSubmitted={() => setRefresh(value => value + 1)}
+                        onAccepted={accepted}
+                        suggested={suggested}
+                      />
+                    ) : undefined}
+                  />
+                ) : code && (
                   <RequestForm
                     code={code}
                     queue={queue}
                     isStreamer={room?.kind === "streamer_queue"}
-                    displayName={
-                      account.profile?.name ||
-                      account.profile?.preferred_username
-                    }
-                    onSubmitted={() => setRefresh((value) => value + 1)}
+                    displayName={account.profile?.name || account.profile?.preferred_username}
+                    onSubmitted={() => setRefresh(value => value + 1)}
                   />
                 )}
+
               </>
             )}
           </aside>
@@ -516,14 +534,19 @@ function RequestForm({
   isStreamer,
   displayName,
   onSubmitted,
+  onAccepted,
+  suggested,
 }: {
   code: string;
   queue: SharedQueue | null;
   isStreamer: boolean;
   displayName?: string;
   onSubmitted: () => void;
+  onAccepted?: (url: string) => void;
+  suggested?: { url: string; nonce: number } | null;
 }) {
   const [url, setUrl] = useState("");
+  useEffect(() => { if (suggested) setUrl(suggested.url); }, [suggested]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [failed, setFailed] = useState(false);
@@ -565,6 +588,7 @@ function RequestForm({
         await api.addQueueLink(code, url.trim());
         setMessage("Your request is in the queue.");
       }
+      onAccepted?.(url.trim());
       setUrl("");
       onSubmitted();
     } catch (cause) {
