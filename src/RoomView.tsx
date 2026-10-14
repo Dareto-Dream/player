@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { LocalLibrary } from "./LocalLibrary";
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import {
   api,
+  base,
   type QueueItem,
   type Room,
   type Session,
@@ -267,6 +269,7 @@ export default function RoomView({
             <ArrowLeft size={15} /> Leave room
           </a>
           {access?.isOwner && <a href={`/rooms/${id}/settings`}>Manage room</a>}
+          {code && <a className="button button-quiet" href={`spectralis://shared-play/join?${new URLSearchParams({ session: code, cdn: base })}`}>Open in Spectralis</a>}
           <button className="button button-quiet" onClick={share}>
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? "Copied" : "Copy invite"}
@@ -500,6 +503,7 @@ export default function RoomView({
                     onSubmitted={() => setRefresh((value) => value + 1)}
                   />
                 )}
+                {session && <LocalLibrary session={session} profile={account.profile} onQueued={() => setRefresh(value => value + 1)} />}
               </>
             )}
           </aside>

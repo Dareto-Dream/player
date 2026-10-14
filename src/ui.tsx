@@ -60,11 +60,11 @@ export function Header({
               <LogOut size={17} />
             </button>
           </div>
-        ) : (
+        ) : ward.enabled ? (
           <button className="button button-quiet" onClick={() => ward.signIn()}>
             Sign in <ArrowUpRight size={16} />
           </button>
-        )}
+        ) : null}
       </div>
     </header>
   )

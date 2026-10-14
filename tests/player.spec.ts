@@ -241,6 +241,8 @@ async function sessionRoutes(page: Page) {
     if (path.endsWith('/presence')) return json({ listenerCount: 18 })
     return json({
       session: {
+        accountUploadsAvailable: true,
+        capabilities: { audioUploads: true },
         roomCode: code,
         trackId: 'one',
         packageUrl: `${base}/shared-play/v2/sessions/${code}/package`,
@@ -263,6 +265,40 @@ async function sessionRoutes(page: Page) {
     },
   }
 }
+
+test('local room files stay in the browser until an account queues them', async ({ page }) => {
+  await sessionRoutes(page)
+  const uploads: { authorization: string | undefined; body: Buffer | null }[] = []
+  await page.route('**/shared-play/v2/sessions/ABC123/uploads', route => {
+    uploads.push({ authorization: route.request().headers().authorization, body: route.request().postDataBuffer() })
+    return route.fulfill({ json: { item: { id: 'uploaded' } } })
+  })
+  await page.route('**/oauth/userinfo', route => route.fulfill({ json: { sub: 'local-test', name: 'Test listener' } }))
+  await page.goto('/sessions/ABC123')
+  await expect(page.getByRole('link', { name: 'Open in Spectralis' })).toHaveAttribute('href', /spectralis:\/\/shared-play\/join\?session=ABC123&cdn=/)
+  await page.getByRole('button', { name: 'Choose from your files' }).click()
+  const library = page.getByRole('dialog', { name: 'Your files' })
+  await library.locator('input[type=file]').setInputFiles({ name: 'A song.wav', mimeType: 'audio/wav', buffer: silentWav() })
+  await expect(library.getByText('A song', { exact: true })).toBeVisible()
+  await expect(library.getByRole('button', { name: 'Add to queue', exact: true })).toBeDisabled()
+  expect(uploads).toHaveLength(0)
+  await page.evaluate(() => sessionStorage.setItem('spectralis.ward.access-token', 'isolated-browser-token'))
+  await page.reload()
+  await page.getByRole('button', { name: 'Choose from your files' }).click()
+  await expect(library.getByText('Signed in as Test listener')).toBeVisible()
+  await expect(library.getByText('A song', { exact: true })).toBeVisible()
+  expect(uploads).toHaveLength(0)
+  await library.getByRole('button', { name: 'Add to queue', exact: true }).click()
+  await expect(library.getByRole('status')).toContainText('was added to the queue')
+  expect(uploads).toHaveLength(1)
+  expect(uploads[0].authorization).toBe('Bearer isolated-browser-token')
+  expect(uploads[0].body?.includes(Buffer.from('filename="A song.wav"'))).toBe(true)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path:'test-results/local-library-mobile.png' })
+  expect(await library.evaluate(el => el.scrollWidth <= el.clientWidth+1)).toBe(true)
+  await library.getByRole('button', { name: 'Remove', exact: true }).click()
+  await expect(library.getByText('A song', { exact: true })).toHaveCount(0)
+})
 
 test('private invite stays in React, plays the real package, pauses and submits a request', async ({
   page,

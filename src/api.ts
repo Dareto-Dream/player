@@ -269,6 +269,8 @@ export type Playback = {
   hostClockUtc?: string;
 };
 export type Session = {
+  accountUploadsAvailable?: boolean;
+  capabilities?: { audioUploads?: boolean };
   roomCode: string;
   trackId?: string;
   packageUrl?: string;
